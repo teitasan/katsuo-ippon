@@ -1097,6 +1097,8 @@ function draw(){
 }
 
 /* ================= 魚群探知機 ================= */
+/* 魚探の色エコー。反応が強いほど赤へ寄る、実機の配色に倣った段階色 */
+const ECHO=['#17527e','#1b7f8c','#1f9a63','#63b23a','#d4c132','#e0892a','#dc4b24','#e0332c'];
 const rcv=document.getElementById('radar'), rctx=rcv.getContext('2d');
 function drawRadar(){
   const g=rctx, W=rcv.width, C=W/2, R=W/2-4, B=S.boat, range=stat.sonar(), k=R/range;
@@ -1107,8 +1109,9 @@ function drawRadar(){
   g.strokeStyle='rgba(63,191,160,.20)'; g.lineWidth=1;
   for(let i=1;i<=3;i++){ g.beginPath(); g.arc(C,C,R*i/3,0,TAU); g.stroke(); }
   g.beginPath(); g.moveTo(C-R,C); g.lineTo(C+R,C); g.moveTo(C,C-R); g.lineTo(C,C+R); g.stroke();
+  const sw=S.t*1.15%TAU;
   g.save();                                   // 掃引
-  g.translate(C,C); g.rotate(S.t*1.15%TAU);
+  g.translate(C,C); g.rotate(sw);
   g.fillStyle='rgba(63,191,160,.10)';
   g.beginPath(); g.moveTo(0,0); g.arc(0,0,R,-0.55,0); g.closePath(); g.fill();
   g.strokeStyle='rgba(63,191,160,.55)';
@@ -1116,12 +1119,20 @@ function drawRadar(){
   g.restore();
   g.strokeStyle='rgba(234,243,244,.22)';      // 画面範囲
   g.strokeRect(C-VW/2*k, C-VH/2*k, VW*k, VH*k);
-  for(const s of S.schools){                  // 魚群
+  for(const s of S.schools){                  // 魚群の反応。濃いほど赤へ寄る色エコー
     const x=C+(s.cx-B.x)*k, y=C+(s.cy-B.y)*k;
-    const r=clamp(2.2+Math.sqrt(s.alive)/5.5,2.2,10);
-    g.globalAlpha=clamp(.35+s.alive/500,.35,.95);
-    g.fillStyle='#4fd6b2';
-    g.beginPath(); g.arc(x,y,r,0,TAU); g.fill();
+    const rr=Math.max(4, s.rx*s.k*k), ry2=Math.max(3, s.ry*s.k*k);
+    let da=sw-Math.atan2(s.cy-B.y, s.cx-B.x);   // 掃引が通った直後ほど明るい
+    da=((da%TAU)+TAU)%TAU;
+    const fade=.42+.58*(1-da/TAU);
+    const i=Math.min(ECHO.length-1, Math.floor(Math.min(1,s.alive/650)*ECHO.length));
+    const ring=(sc,ci,al)=>{
+      g.globalAlpha=al*fade; g.fillStyle=ECHO[Math.max(0,ci)];
+      g.beginPath(); g.ellipse(x,y,rr*sc,ry2*sc,s.ca,0,TAU); g.fill();
+    };
+    ring(1.00, i-3, .30);
+    ring(0.66, i-1, .40);
+    if(i>=2) ring(0.32, i, .60);
     g.globalAlpha=1;
   }
   for(const c of S.chests){                   // 宝箱
