@@ -330,7 +330,7 @@ const FISH_PAL=[
   ['#1a4d6c','#0d3450','#092a40','#0d3450','#184868']
 ];
 const FISH_ALPHA=[1,.88,.6], FISH_SCALE=[1,.92,.78];
-const ANG=24, CELL=18;
+const ANG=24, CELL=16;   // 13x5 の回転に必要なのは13.9px。余白を詰めて合成面積を減らす
 let fishAtlas=null;
 
 function fishBase(d){
@@ -359,7 +359,7 @@ function buildFishAtlas(){
       g.globalAlpha=FISH_ALPHA[d];
       g.translate(a*CELL+CELL/2, d*CELL+CELL/2);
       g.rotate(a/ANG*TAU);
-      g.drawImage(base, -Math.round(base.width/2), -Math.round(base.height/2));
+      g.drawImage(base, -base.width/2, -base.height/2);   // 丸めるとセル中心から0.5pxずれて端が欠ける
       g.restore();
     }
   }
@@ -625,6 +625,8 @@ function initAssets(){
 
 /* ================= 魚群 ================= */
 const PSTEP=4, PN=104;            // 先頭の軌跡を4px刻みで416pxぶん保持する
+/* 表に出さない副効果の係数（1レベルあたり） */
+const TUNE={ lureSchoolSize:0.12, sonarChestRate:0.15 };
 function makeSchool(x,y,count){
   const rx=Math.min(190,Math.sqrt(count)*5.0), ry=rx*0.6;
   const ang=rnd(0,TAU), ca=Math.cos(ang), sa=Math.sin(ang);
@@ -655,17 +657,19 @@ function manageWorld(dt){
     if(s.alive<=0 || Math.hypot(s.cx-B.x,s.cy-B.y)>DESP){ S.totalFish-=s.alive; S.schools.splice(i,1); }
   }
   let guard=0;
-  while(S.schools.length<target && S.totalFish<9000 && guard++<6){
+  const cap=9000*(1+TUNE.lureSchoolSize*(S.up.lure-1));  // 群れが大きくなる分、総数上限も上げる
+  while(S.schools.length<target && S.totalFish<cap && guard++<6){
     const a=rnd(0,TAU), d=rnd(260,560);
-    const n=Math.round(rnd(50+p*290, 150+p*520));
+    const n=Math.round(rnd(50+p*290, 150+p*520)*(1+TUNE.lureSchoolSize*(S.up.lure-1)));  // 隠し効果：集魚で群れが大きくなる
     S.schools.push(makeSchool(B.x+Math.cos(a)*d, B.y+Math.sin(a)*d, n));
     S.totalFish+=n;
   }
   if(S.mode!=='play') return;
   S.chestT-=dt;
   if(S.chestT<=0){
-    S.chestT=rnd(24,34);
-    if(S.chests.length<2){
+    const sn=S.up.sonar;
+    S.chestT=rnd(24,34)/(1+TUNE.sonarChestRate*(sn-1));   // 隠し効果：魚探で宝箱が見つかりやすくなる
+    if(S.chests.length<2+((sn-1)>>1)){
       const a=rnd(0,TAU), d=rnd(260,560);
       S.chests.push({x:B.x+Math.cos(a)*d, y:B.y+Math.sin(a)*d, life:52, ph:rnd(0,TAU)});
     }
