@@ -688,7 +688,7 @@ function makeSchool(x,y,count){
 }
 function manageWorld(dt){
   const B=S.boat, p=S.t/GAME_TIME;
-  const target=14+Math.floor(p*10), DESP=900;
+  const target=4+Math.floor(p*3), DESP=1000;
   for(let i=S.schools.length-1;i>=0;i--){
     const s=S.schools[i];
     if(s.alive<=0 || Math.hypot(s.cx-B.x,s.cy-B.y)>DESP){ S.totalFish-=s.alive; S.schools.splice(i,1); }
@@ -696,7 +696,7 @@ function manageWorld(dt){
   let guard=0;
   const cap=9000*(1+TUNE.lureSchoolSize*(S.up.lure-1));  // 群れが大きくなる分、総数上限も上げる
   while(S.schools.length<target && S.totalFish<cap && guard++<6){
-    const n=Math.round(rnd(50+p*290, 150+p*520)*(1+TUNE.lureSchoolSize*(S.up.lure-1)));  // 隠し効果：集魚で群れが大きくなる
+    const n=Math.round(rnd(95+p*520, 280+p*950)*(1+TUNE.lureSchoolSize*(S.up.lure-1)));  // 隠し効果：集魚で群れが大きくなる
     // 湧き距離は群れの中心ではなく「手前側の縁」で測る。
     // 半径を足さないと、大きい群れほど画面の中に身体がはみ出して出現する
     const a=rnd(0,TAU), d=schoolRadius(n)+rnd(290,520);
@@ -1262,7 +1262,9 @@ function reset(){
   Object.assign(S.boat,{x:0,y:0,vx:0,vy:0,face:1,bob:0});
   S.dir.x=0; S.dir.y=0;
   layoutCrew();
-  const s=makeSchool(175,rnd(-28,28),130); S.schools.push(s); S.totalFish+=130;
+  S.schools.push(makeSchool(200,rnd(-30,30),300));
+  S.schools.push(makeSchool(rnd(-430,-330),rnd(-260,260),260));
+  S.totalFish+=560;
 }
 function startGame(){
   audioInit(); reset();
