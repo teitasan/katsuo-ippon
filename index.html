@@ -677,7 +677,7 @@ function makeSchool(x,y,count){
     s.path[b+2]=ca; s.path[b+3]=sa; s.path[b+4]=ang;
   }
   for(let i=0;i<count;i++){
-    const a=rnd(0,TAU), u=Math.pow(Math.random(),0.42), r=Math.random();
+    const a=rnd(0,TAU), u=Math.pow(Math.random(),0.72), r=Math.random();   // 0.5が一様。大きいほど中心が濃い
     const ox=Math.cos(a)*u*rx;
     s.fish[i]={d:rx-ox, oy:Math.sin(a)*u*ry,      // d=先頭からの弧長距離
       dd:(r<.3?2:(r<.66?1:0)),
