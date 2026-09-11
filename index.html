@@ -196,6 +196,17 @@
   .newbest{display:inline-block; margin-top:.7em; padding:.2em .9em; font-size:.72em; letter-spacing:.28em;
     color:#fff; background:var(--hata)}
 
+  /* 位置指定は外側で行う。#perf 自身に font-size を持たせると em の基準が変わってしまう */
+  #perfwrap{position:absolute; left:1em; top:6.9em; pointer-events:none}
+  #perf{padding:.45em .6em; background:rgba(4,20,32,.82); border:1px solid var(--line);
+    border-left:3px solid var(--kelp); border-radius:2px;
+    font-family:"M PLUS 1 Code",ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-variant-numeric:tabular-nums; font-size:.62em; line-height:1.65; color:var(--mist);
+    white-space:pre; letter-spacing:.02em}
+  #perf b{color:var(--foam); font-weight:700}
+  #perf i{font-style:normal; color:var(--kelp)}
+  #perf u{text-decoration:none; color:var(--dim)}
+  #perf .hot{color:#ff8b6a}
   .mute{position:absolute; left:1em; top:4em; pointer-events:auto; width:2em; height:2em;
     display:grid; place-items:center; color:var(--dim); font-size:1em;
     border:1px solid var(--line); background:rgba(10,31,46,.7); border-radius:2px}
@@ -242,6 +253,7 @@
     </div>
 
     <button class="mute" id="mute" title="音">♪</button>
+    <div id="perfwrap"><div id="perf" hidden></div></div>
 
     <div class="scrim on" id="title">
       <div class="box">
@@ -930,8 +942,10 @@ function drawSea(){
   ctx.restore();
   ctx.fillStyle=topGrad; ctx.fillRect(0,0,VW,VH);
 }
+let fishDrawn=0;
 function drawSchools(){
   const B=S.boat, ox=VW/2-B.x, oy=VH/2-B.y;
+  fishDrawn=0;
   for(const s of S.schools){
     const cx=s.cx+ox, cy=s.cy+oy, krx=s.rx*s.k, kry=s.ry*s.k;
     const mg=krx+40;
@@ -950,6 +964,7 @@ function drawSchools(){
       if(x<-9||x>VW+9||y<-9||y>VH+9) continue;
       const ai=((Math.round(f.a/TAU*ANG)%ANG)+ANG)%ANG;
       ctx.drawImage(fishAtlas, ai*CELL, f.dd*CELL, CELL, CELL, (x-CELL/2)|0, (y-CELL/2)|0, CELL, CELL);
+      fishDrawn++;
     }
   }
 }
@@ -1305,11 +1320,39 @@ const muteBtn=document.getElementById('mute');
 muteBtn.addEventListener('click',()=>{ muted=!muted; muteBtn.textContent=muted?'♪̸':'♪';
   muteBtn.style.color=muted?'#4a6577':''; });
 
+/* ================= 負荷計測（Fキーで開閉） ================= */
+const elPerf=document.getElementById('perf');
+const perf={on:false, acc:0, n:0, upd:0, drw:0, worst:0};
+function perfToggle(v){
+  perf.on = v===undefined ? !perf.on : v;
+  elPerf.hidden=!perf.on;
+  perf.acc=perf.n=perf.upd=perf.drw=perf.worst=0;
+  try{ localStorage.setItem('ippon.perf', perf.on?'1':'0'); }catch(e){}
+}
+function perfTick(raw,u,d){
+  perf.acc+=raw; perf.n++; perf.upd+=u; perf.drw+=d;
+  const ft=u+d; if(ft>perf.worst) perf.worst=ft;
+  if(perf.acc<0.25) return;
+  const fps=perf.n/perf.acc, ms=perf.acc/perf.n*1000;
+  const up=perf.upd/perf.n, dr=perf.drw/perf.n;
+  const hot=v=>v>=8?' class="hot"':'';
+  elPerf.innerHTML=
+    '<b'+(fps<50?' class="hot"':'')+'>'+fps.toFixed(1)+'</b> fps <u>'+ms.toFixed(1)+'ms</u>\n'+
+    '更新 <i>'+up.toFixed(2)+'</i>  描画 <i'+hot(dr)+'>'+dr.toFixed(2)+'</i>  最悪 <i'+hot(perf.worst)+'>'+perf.worst.toFixed(1)+'</i> ms\n'+
+    '魚 <b>'+S.totalFish.toLocaleString('en-US')+'</b> 画面 <b>'+fishDrawn.toLocaleString('en-US')+'</b>  群 <b>'+S.schools.length+'</b>\n'+
+    '漁師 <b>'+S.crew.length+'</b>  竿 <b>'+S.parts.length+'</b>  飛沫 <b>'+(S.spray.length+S.wake.length+S.rings.length)+'</b>';
+  perf.acc=perf.n=perf.upd=perf.drw=perf.worst=0;
+}
+window.addEventListener('keydown',e=>{
+  if((e.key==='f'||e.key==='F') && !e.metaKey && !e.ctrlKey && !e.altKey) perfToggle();
+});
+
 /* ================= ループ ================= */
 let last=performance.now();
 function tick(now){
-  let dt=(now-last)/1000; last=now;
-  if(dt>.05) dt=.05;
+  const raw=(now-last)/1000; last=now;
+  const dt=raw>.05?.05:raw;
+  const p0=performance.now();
   if(S.mode==='play'){
     S.t+=dt;
     updateBoat(dt); manageWorld(dt); updateSchools(dt); updateFishing(dt); updateParts(dt);
@@ -1319,13 +1362,16 @@ function tick(now){
     S.t+=dt*.5;
     updateBoat(dt); manageWorld(dt); updateSchools(dt); updateParts(dt);
   }
+  const p1=performance.now();
   draw(); drawRadar(); updateHUD();
+  if(perf.on) perfTick(raw, p1-p0, performance.now()-p1);
   requestAnimationFrame(tick);
 }
 
 /* ================= 起動 ================= */
 initAssets(); initPatterns(); buildChips();
 S.best=loadBest();
+try{ if(localStorage.getItem('ippon.perf')==='1') perfToggle(true); }catch(e){}
 document.getElementById('titlebest').textContent = S.best? '自己ベスト '+S.best.toLocaleString('en-US')+'本' : '';
 reset(); S.mode='title';
 requestAnimationFrame(tick);
