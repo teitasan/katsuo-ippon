@@ -431,7 +431,7 @@ const FPAL=[
 const fishers=[[],[]];   // [row][pose] -> [palette]
 
 function buildFisher(pi,row,pose){
-  const W=24,H=30, c=mkc(W,H), g=gx(c);
+  const W=24,H=34, c=mkc(W,H), g=gx(c);
   const p=FPAL[pi];
   const by = row===0 ? 17 : 26;          // 腰の切断面（near/far で位置を変える）
   const hy = by-15;                      // 頭の上端
@@ -449,7 +449,7 @@ function buildFisher(pi,row,pose){
   // 腕と竿
   let ax0,ay0,tx,ty;
   if(pose===0){
-    if(row===0){ ax0=cx+4; ay0=by-6; tx=20; ty=by+9; }
+    if(row===0){ ax0=cx+4; ay0=by-6; tx=21; ty=by+13; }
     else       { ax0=cx+4; ay0=by-7; tx=21; ty=by-19; }
   }else{
     ax0=cx+5; ay0=by-11; tx=22; ty=by-(row===0?16:24);
@@ -460,9 +460,9 @@ function buildFisher(pi,row,pose){
   line(g,ax0,ay0,tx,ty,'#caa268');                   // 一本釣り竿（リールなし）
   line(g,ax0+1,ay0,tx,ty-1,'#8f6f42');
   const lx=tx, ly=ty;
-  if(pose===0){                                      // 糸（短く出しておく・続きは動的描画）
-    const dy = row===0? 6 : -6;
-    line(g,lx,ly,lx+1,ly+dy,'#dfe9ee');
+  if(pose===0){                                      // 糸の出だしだけ。続きは水中側で動的に描く
+    const dy = row===0? 2 : -2;
+    line(g,lx,ly,lx,ly+dy,'#cfdde6');
   }
   if(row===1){                                       // 向こう舷は沈める
     g.globalCompositeOperation='source-atop';
@@ -695,7 +695,8 @@ function layoutCrew(){
   const b=boats[S.up.hull-1];
   S.seats=b.seatX.length*2;
   const onboard=Math.min(S.up.crew,S.seats);
-  while(S.crew.length<onboard) S.crew.push({pal:rint(0,2), cd:rnd(0,.7), pose:0, pt:0, row:0, si:0});
+  while(S.crew.length<onboard) S.crew.push({pal:rint(0,2), cd:rnd(0,.7), pose:0, pt:0, row:0, si:0,
+    lineLen:rint(8,13), lineSlant:rnd(-2.4,2.4)});
   while(S.crew.length>onboard) S.crew.pop();
   const order=[], ns=b.seatX.length, mid=(ns-1)/2;
   const byCenter=[];
@@ -968,12 +969,19 @@ function drawSpray(){
 }
 function drawLines(){
   const B=S.boat, ox=VW/2-B.x, oy=VH/2-B.y;
-  ctx.fillStyle='rgba(216,232,240,.5)';
+  const by0=VH/2+bobPx, HULL_BOT=4;
   for(const fm of S.crew){
     if(fm.pose===1) continue;
-    const x=Math.round(VW/2+fm.tipx), y=Math.round(VH/2+fm.tipy)+bobPx;
-    const h=fm.row===0?9:-9;
-    ctx.fillRect(x, h>0?y:y+h, 1, Math.abs(h));
+    const x0=Math.round(VW/2+fm.tipx), y0=Math.round(VH/2+fm.tipy)+bobPx;
+    const dir=fm.row===0?1:-1, len=fm.lineLen, sl=fm.lineSlant;
+    let lx=x0, ly=y0;
+    for(let i=1;i<=len;i++){
+      ly=y0+dir*i; lx=x0+Math.round(sl*i/len);
+      ctx.fillStyle=(ly-by0>HULL_BOT||dir<0)?'rgba(216,232,240,.5)':'rgba(216,232,240,.2)';
+      ctx.fillRect(lx,ly,1,1);
+    }
+    ctx.fillStyle='rgba(240,250,255,.8)';
+    ctx.fillRect(lx,ly,1,1);
   }
   ctx.strokeStyle='rgba(236,247,252,.8)'; ctx.lineWidth=1;
   for(const p of S.parts){
