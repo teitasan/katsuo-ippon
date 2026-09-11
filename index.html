@@ -975,13 +975,7 @@ function drawSchools(){
     const cx=s.cx+ox, cy=s.cy+oy, krx=s.rx*s.k, kry=s.ry*s.k;
     const mg=krx+40;
     if(cx<-krx-mg||cx>VW+krx+mg||cy<-kry-mg||cy>VH+kry+mg) continue;
-    const dens=Math.min(1,Math.sqrt(s.alive/s.n0)*1.4);   // 残量が減れば影も薄れる
-    ctx.fillStyle='#04202f';
-    ctx.globalAlpha=.20*dens;
-    ctx.beginPath(); ctx.ellipse(cx,cy,krx*.95,kry*.95,s.ca,0,TAU); ctx.fill();
-    ctx.globalAlpha=.24*dens;
-    ctx.beginPath(); ctx.ellipse(cx,cy,krx*.58,kry*.58,s.ca,0,TAU); ctx.fill();
-    ctx.globalAlpha=1;
+    // 群れの影は描かない。cx/cy/krx は画面外カリングの判定にだけ使う
     const fs=s.fish;
     for(let i=0;i<fs.length;i++){
       const f=fs[i]; if(!f.alive) continue;
