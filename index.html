@@ -342,6 +342,17 @@ const FISH_PAL=[
   ['#1a4d6c','#0d3450','#092a40','#0d3450','#184868']
 ];
 const FISH_ALPHA=[1,.88,.6], FISH_SCALE=[1,.92,.78];
+/* 釣り上げられて空中にいるカツオ。水中用とは用途が違うので別に持つ。
+   真上から見た暗い背中ではなく、横向きで腹の銀色が出る絵にする。 */
+const AIR_MAP=[
+  '.....####....',
+  '#...#########',
+  '##.##########',
+  '##.##########',
+  '#...#########',
+  '.....####....'
+];
+const AIR_PAL=['#1b4665','#275d84','#5798c2','#b7dcef','#f4fafd','#d2e4ef'];
 const ANG=24, CELL=16;   // 13x5 の回転に必要なのは13.9px。余白を詰めて合成面積を減らす
 let fishAtlas=null;
 
@@ -361,14 +372,23 @@ function fishBase(d){
   const w2=Math.max(6,Math.round(w*s)), h2=Math.max(3,Math.round(h*s));
   const c2=mkc(w2,h2), g2=gx(c2); g2.drawImage(c,0,0,w2,h2); return c2;
 }
+function fishAir(){
+  const w=13,h=6, c=mkc(w,h), g=gx(c);
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++)
+    if(AIR_MAP[y][x]==='#') px(g,x,y,1,1,AIR_PAL[y]);
+  px(g,7,3,1,1,'#8fc0dc'); px(g,9,3,1,1,'#8fc0dc');   // 体側の縞
+  px(g,10,1,1,1,'#0a2233');                            // 目
+  px(g,12,2,1,2,'#e8f4fb');                            // 口先の照り返し
+  return c;
+}
 function buildFishAtlas(){
-  fishAtlas=mkc(CELL*ANG, CELL*3);
+  fishAtlas=mkc(CELL*ANG, CELL*4);
   const g=gx(fishAtlas);
-  for(let d=0;d<3;d++){
-    const base=fishBase(d);
+  for(let d=0;d<4;d++){
+    const base=d<3?fishBase(d):fishAir();
     for(let a=0;a<ANG;a++){
       g.save();
-      g.globalAlpha=FISH_ALPHA[d];
+      g.globalAlpha=d<3?FISH_ALPHA[d]:1;
       g.translate(a*CELL+CELL/2, d*CELL+CELL/2);
       g.rotate(a/ANG*TAU);
       g.drawImage(base, -base.width/2, -base.height/2);   // 丸めるとセル中心から0.5pxずれて端が欠ける
@@ -576,7 +596,7 @@ const S={
   mode:'title', t:0, score:0, best:0, level:1, need:9, prog:0,
   boat:{x:0,y:0,vx:0,vy:0,face:1,bob:0},
   dir:{x:0,y:0}, aim:{x:0,y:0},
-  schools:[], chests:[], crew:[], parts:[], wake:[], rings:[], spray:[],
+  schools:[], chests:[], crew:[], parts:[], wake:[], rings:[], spray:[], flash:[],
   up:{crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1},
   seatX:[], seats:0, chestT:26, sprayAcc:0, start:{crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1}, totalFish:0, choices:[], caught:0, shake:0
 };
@@ -901,13 +921,14 @@ function updateParts(dt){
   for(let i=S.parts.length-1;i>=0;i--){
     const p=S.parts[i]; p.t+=dt;
     const u=p.t/p.dur;
-    if(u>=1){ S.parts.splice(i,1); continue; }
+    if(u>=1){ S.flash.push({fm:p.fm, t:0}); S.parts.splice(i,1); continue; }
     const tx=B.x+p.fm.tipx, ty=B.y+p.fm.tipy;
     p.x=p.x0+(tx-p.x0)*u;
     p.y=p.y0+(ty-p.y0)*u - Math.sin(u*Math.PI)*14;
     p.a+=dt*10;
   }
   for(let i=S.rings.length-1;i>=0;i--){ const r=S.rings[i]; r.t+=dt; if(r.t>.36) S.rings.splice(i,1); }
+  for(let i=S.flash.length-1;i>=0;i--){ const f=S.flash[i]; f.t+=dt; if(f.t>.16) S.flash.splice(i,1); }
   for(let i=S.wake.length-1;i>=0;i--){ const w=S.wake[i]; w.t+=dt; if(w.t>1.1) S.wake.splice(i,1); }
   for(let i=S.spray.length-1;i>=0;i--){
     const s=S.spray[i]; s.t+=dt;
@@ -1056,8 +1077,16 @@ function drawLines(){
     const px2=Math.round(p.x+ox)+.5, py2=Math.round(p.y+oy)+.5;
     ctx.beginPath(); ctx.moveTo(tx,ty); ctx.lineTo(px2,py2); ctx.stroke();
     const ai=((Math.round(p.a/TAU*ANG)%ANG)+ANG)%ANG;
-    ctx.drawImage(fishAtlas, ai*CELL, 0, CELL, CELL, (px2-CELL/2)|0, (py2-CELL/2)|0, CELL, CELL);
+    ctx.drawImage(fishAtlas, ai*CELL, 3*CELL, CELL, CELL, (px2-CELL/2)|0, (py2-CELL/2)|0, CELL, CELL);
   }
+  for(const fl of S.flash){                      // 竿先に収まった瞬間の光
+    const u=fl.t/.16, r=1+u*3.5;
+    const x=Math.round(VW/2+fl.fm.tipx), y=Math.round(VH/2+fl.fm.tipy)+bobPx;
+    ctx.globalAlpha=(1-u)*.9;
+    ctx.fillStyle='#fff6dd';
+    ctx.fillRect(x-r,y,r*2,1); ctx.fillRect(x,y-r,1,r*2);
+  }
+  ctx.globalAlpha=1;
 }
 function draw(){
   bobPx=Math.round(Math.sin(S.boat.bob)*1.2);
@@ -1214,7 +1243,7 @@ const scrTitle=document.getElementById('title'), scrResult=document.getElementBy
 function reset(){
   S.t=0; S.score=0; S.level=1; S.need=9; S.prog=0; S.totalFish=0; S.chestT=20;
   S.schools.length=0; S.chests.length=0; S.crew.length=0;
-  S.parts.length=0; S.wake.length=0; S.rings.length=0; S.spray.length=0;
+  S.parts.length=0; S.wake.length=0; S.rings.length=0; S.spray.length=0; S.flash.length=0;
   S.up={crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1};
   S.start={crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1};
   Object.assign(S.boat,{x:0,y:0,vx:0,vy:0,face:1,bob:0});
