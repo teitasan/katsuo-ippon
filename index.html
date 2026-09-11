@@ -599,6 +599,7 @@ const ICONS={};
 const S={
   mode:'title', t:0, score:0, best:0, level:1, need:9, prog:0,
   boat:{x:0,y:0,vx:0,vy:0,hd:0,sp:0,face:1,bob:0},
+  stick:{id:-1, on:false, ax:0, ay:0, tx:0, ty:0, f:0},
   dir:{x:0,y:0}, aim:{x:0,y:0},
   schools:[], chests:[], crew:[], parts:[], wake:[], rings:[], spray:[], flash:[],
   up:{crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1},
@@ -1097,10 +1098,35 @@ function drawLines(){
   }
   ctx.globalAlpha=1;
 }
+function drawStick(){
+  const st=S.stick;
+  st.f+=((st.on?1:0)-st.f)*0.22;
+  if(st.f<0.03) return;
+  const ax=Math.round(st.ax), ay=Math.round(st.ay);
+  ctx.globalAlpha=st.f*0.22;                  // 海に埋もれないよう下地を敷く
+  ctx.fillStyle='#041a28';
+  ctx.beginPath(); ctx.arc(ax,ay,STICK_R+2,0,TAU); ctx.fill();
+  ctx.globalAlpha=st.f*0.6; ctx.fillStyle='#cfe3ec';
+  for(let i=0;i<16;i++){                      // 支点の輪
+    const a=i/16*TAU;
+    ctx.fillRect(ax+Math.round(Math.cos(a)*STICK_R)-1, ay+Math.round(Math.sin(a)*STICK_R)-1, 2,2);
+  }
+  const dx=st.tx-st.ax, dy=st.ty-st.ay, m=Math.hypot(dx,dy);
+  if(m>STICK_DEAD){                           // 支点から舵の向きへ点線
+    ctx.globalAlpha=st.f*0.5;
+    for(let i=STICK_DEAD;i<m;i+=3) ctx.fillRect(ax+Math.round(dx/m*i), ay+Math.round(dy/m*i),1,1);
+  }
+  ctx.globalAlpha=st.f;
+  const tx=Math.round(st.tx), ty=Math.round(st.ty);
+  ctx.fillStyle='#7a4f08'; ctx.fillRect(tx-3,ty-3,7,7);
+  ctx.fillStyle='#f2b32c'; ctx.fillRect(tx-2,ty-2,5,5);
+  ctx.fillStyle='#ffe6a8'; ctx.fillRect(tx-1,ty-1,2,2);
+  ctx.globalAlpha=1;
+}
 function draw(){
   bobPx=Math.round(Math.sin(S.boat.bob)*1.2);
   drawSea(); drawSchools(); drawChests(); drawRings(); drawWake();
-  drawBoat(); drawSpray(); drawLines();
+  drawBoat(); drawSpray(); drawLines(); drawStick();
 }
 
 /* ================= 魚群探知機 ================= */
@@ -1321,6 +1347,7 @@ function reset(){
   S.start={crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1};
   Object.assign(S.boat,{x:0,y:0,vx:0,vy:0,hd:0,sp:0,face:1,bob:0});
   S.dir.x=0; S.dir.y=0;
+  S.stick.id=-1; S.stick.on=false; S.stick.f=0;
   layoutCrew();
   S.schools.push(makeSchool(175,rnd(-28,28),130)); S.totalFish+=130;
 }
@@ -1356,20 +1383,48 @@ function endGame(){
 }
 
 /* ================= 入力 ================= */
-function aim(e){
-  if(perf.on && e.target && e.target.closest && e.target.closest('.chip')) return;
+const STICK_R=26, STICK_DEAD=5;
+function onField(e){ return e.target===cv || e.target===frameEl; }
+function toLocal(e){
+  const r=frameEl.getBoundingClientRect();
+  return {x:(e.clientX-r.left)/r.width*VW, y:(e.clientY-r.top)/r.height*VH};
+}
+function aimMouse(e){                      // PC：画面中央から見た向き
+  if(!onField(e)) return;
   const r=frameEl.getBoundingClientRect();
   const dx=e.clientX-(r.left+r.width/2), dy=e.clientY-(r.top+r.height/2);
   const m=Math.hypot(dx,dy), dead=r.width*0.045;
   if(m<dead){ S.dir.x=0; S.dir.y=0; }
   else { S.dir.x=dx/m; S.dir.y=dy/m; }
 }
-frameEl.addEventListener('pointermove',aim);
 frameEl.addEventListener('pointerdown',e=>{
-  if(e.pointerType==='mouse') return;
-  if(e.target===frameEl||e.target===cv) e.preventDefault();
-  aim(e);
+  if(e.pointerType==='mouse'){ aimMouse(e); return; }
+  if(!onField(e) || S.stick.id!==-1) return;   // 重なった2本目の指は無視
+  e.preventDefault();
+  const p=toLocal(e), st=S.stick;
+  st.id=e.pointerId; st.on=true;
+  st.ax=p.x; st.ay=p.y; st.tx=p.x; st.ty=p.y;
 });
+frameEl.addEventListener('pointermove',e=>{
+  if(e.pointerType==='mouse'){ aimMouse(e); return; }
+  const st=S.stick;
+  if(e.pointerId!==st.id) return;
+  e.preventDefault();
+  const p=toLocal(e);
+  let dx=p.x-st.ax, dy=p.y-st.ay, m=Math.hypot(dx,dy);
+  if(m>STICK_R){                              // 引っ張りすぎたら支点を連れていく
+    const k=1-STICK_R/m;
+    st.ax+=dx*k; st.ay+=dy*k;
+    dx*=STICK_R/m; dy*=STICK_R/m; m=STICK_R;
+  }
+  st.tx=st.ax+dx; st.ty=st.ay+dy;
+  if(m>STICK_DEAD){ S.dir.x=dx/m; S.dir.y=dy/m; }   // 内側では舵を変えない
+});
+function endStick(e){
+  if(e.pointerId===S.stick.id){ S.stick.id=-1; S.stick.on=false; }  // 離しても進路は維持
+}
+frameEl.addEventListener('pointerup',endStick);
+frameEl.addEventListener('pointercancel',endStick);
 document.getElementById('start').addEventListener('click',startGame);
 document.getElementById('retry').addEventListener('click',startGame);
 
