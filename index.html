@@ -598,7 +598,7 @@ const ICONS={};
 /* ---------------- 状態 ---------------- */
 const S={
   mode:'title', t:0, score:0, best:0, level:1, need:9, prog:0,
-  boat:{x:0,y:0,vx:0,vy:0,face:1,bob:0},
+  boat:{x:0,y:0,vx:0,vy:0,hd:0,sp:0,face:1,bob:0},
   dir:{x:0,y:0}, aim:{x:0,y:0},
   schools:[], chests:[], crew:[], parts:[], wake:[], rings:[], spray:[], flash:[],
   up:{crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1},
@@ -608,6 +608,7 @@ const TONS=[9,19,49,119,199];
 const stat = {
   rate:(u)=>1.25*Math.pow(1.18,(u||S.up).rate),
   speed:(u)=>{u=u||S.up; return 52*Math.pow(1.12,u.engine)*(1+0.045*(u.hull-1));},
+  turn:(u)=>{u=u||S.up; return 5.0*Math.pow(1.10,u.engine)*(1-0.03*(u.hull-1));},
   sonar:(u)=>250*Math.pow(1.32,(u||S.up).sonar-1),
   lureR:(u)=>{u=u||S.up; return u.lure===0?0:150+70*u.lure;},
   lureF:()=>S.up.lure*3.4,
@@ -897,10 +898,17 @@ function updateBoat(dt){
     tx=S.dir.x; ty=S.dir.y;
   }
   const want=Math.hypot(tx,ty);
-  const tvx=want>0?tx/want*sp*(S.mode==='title'?.45:1):0;
-  const tvy=want>0?ty/want*sp*(S.mode==='title'?.45:1):0;
-  const k=1-Math.pow(0.0016,dt);          // なめらかな加減速
-  B.vx+=(tvx-B.vx)*k; B.vy+=(tvy-B.vy)*k;
+  const cruise=sp*(S.mode==='title'?.45:1);
+  if(want>0){                             // 船首方位は最小旋回半径に縛られる
+    let dh=Math.atan2(ty,tx)-B.hd;
+    while(dh>Math.PI) dh-=TAU;
+    while(dh<-Math.PI) dh+=TAU;
+    const wmax=stat.turn()*(0.6+0.4*Math.min(1,B.sp/Math.max(1,sp)));   // 停船中はやや舵が鈍る
+    B.hd+=clamp(dh,-wmax*dt,wmax*dt);
+  }
+  const target=want>0?cruise:0;           // 推力は船首方向のみ。横滑りはしない
+  B.sp+=(target-B.sp)*(1-Math.pow(0.018,dt));
+  B.vx=Math.cos(B.hd)*B.sp; B.vy=Math.sin(B.hd)*B.sp;
   B.x+=B.vx*dt; B.y+=B.vy*dt;
   if(Math.abs(B.vx)>4) B.face=B.vx>0?1:-1;
   B.bob+=dt*2.4;
@@ -1311,7 +1319,7 @@ function reset(){
   S.parts.length=0; S.wake.length=0; S.rings.length=0; S.spray.length=0; S.flash.length=0;
   S.up={crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1};
   S.start={crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1};
-  Object.assign(S.boat,{x:0,y:0,vx:0,vy:0,face:1,bob:0});
+  Object.assign(S.boat,{x:0,y:0,vx:0,vy:0,hd:0,sp:0,face:1,bob:0});
   S.dir.x=0; S.dir.y=0;
   layoutCrew();
   S.schools.push(makeSchool(175,rnd(-28,28),130)); S.totalFish+=130;
