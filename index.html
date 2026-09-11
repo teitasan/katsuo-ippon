@@ -1099,11 +1099,17 @@ function draw(){
 /* 魚探の色エコー。反応が強いほど赤へ寄る、実機の配色に倣った段階色 */
 const ECHO=['#17527e','#1b7f8c','#1f9a63','#63b23a','#d4c132','#e0892a','#dc4b24','#e0332c'];
 const RCELL=7;                 // エコー1マスの画素数
-const ECHO_DENS=185;           // 濃度から色段階への換算係数。上げるほど赤くなりやすい
-let echoGrid=null, echoCols=0;
+const ECHO_DENS=250;           // 近傍平均の密度から色段階への換算係数。上げるほど赤くなりやすい
+const ECHO_RANGE=68;           // 近傍として見る海の半径(px)。レンジが変わっても一定に保つ
+let echoGrid=null, echoTmp=null, echoBlur=null, echoCols=0;
 function drawEchoes(g,C,R,k,B,sw){
   const W=rcv.width;
-  if(!echoGrid){ echoCols=Math.ceil(W/RCELL); echoGrid=new Int32Array(echoCols*echoCols); }
+  if(!echoGrid){
+    echoCols=Math.ceil(W/RCELL);
+    echoGrid=new Float32Array(echoCols*echoCols);
+    echoTmp=new Float32Array(echoCols*echoCols);
+    echoBlur=new Float32Array(echoCols*echoCols);
+  }
   echoGrid.fill(0);
   for(const s of S.schools){                  // 魚を間引いて拾い、間引いた分を重みにする
     const fs=s.fish, step=Math.max(1,Math.round(s.alive/400));
@@ -1114,14 +1120,32 @@ function drawEchoes(g,C,R,k,B,sw){
       echoGrid[((y/RCELL)|0)*echoCols+((x/RCELL)|0)]+=step;
     }
   }
+  const N=echoCols;
+  const kr=Math.max(1,Math.min(7,Math.round(ECHO_RANGE*k/RCELL)));   // 近傍の半径(マス)
+  const EKS=kr+1;
+  for(let y=0;y<N;y++){                       // 横方向
+    const row=y*N;
+    for(let x=0;x<N;x++){
+      let a=0;
+      for(let t=-kr;t<=kr;t++){ const xx=x+t; if(xx<0||xx>=N) continue; a+=echoGrid[row+xx]*(EKS-Math.abs(t)); }
+      echoTmp[row+x]=a/(EKS*EKS);
+    }
+  }
+  for(let y=0;y<N;y++){                       // 縦方向。空きセルが混じるほど平均が下がる
+    for(let x=0;x<N;x++){
+      let a=0;
+      for(let t=-kr;t<=kr;t++){ const yy=y+t; if(yy<0||yy>=N) continue; a+=echoTmp[yy*N+x]*(EKS-Math.abs(t)); }
+      echoBlur[y*N+x]=a/(EKS*EKS);
+    }
+  }
   const cw=RCELL/k, norm=ECHO_DENS/(cw*cw), R2=R*R, half=RCELL/2;
-  for(let cy=0;cy<echoCols;cy++){
+  for(let cy=0;cy<N;cy++){
     const py=cy*RCELL, dy=py+half-C;
-    for(let cx=0;cx<echoCols;cx++){
-      const n=echoGrid[cy*echoCols+cx]; if(!n) continue;
+    for(let cx=0;cx<N;cx++){
+      if(echoGrid[cy*N+cx]<=0) continue;      // 魚がいるマスだけ点灯。色は周囲から決める
       const px2=cx*RCELL, dx=px2+half-C;
       if(dx*dx+dy*dy>R2) continue;
-      const lv=Math.min(ECHO.length-1, Math.max(0, Math.round(n*norm)-1));
+      const lv=Math.min(ECHO.length-1, Math.max(0, Math.round(echoBlur[cy*N+cx]*norm)-1));
       let da=sw-Math.atan2(dy,dx); da=((da%TAU)+TAU)%TAU;
       g.globalAlpha=.45+.55*(1-da/TAU);       // 掃引の残光
       g.fillStyle=ECHO[lv];
