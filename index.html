@@ -660,7 +660,7 @@ function initAssets(){
 }
 
 /* ================= 魚群 ================= */
-const schoolRadius=n=>Math.min(190,Math.sqrt(n)*5.0);
+const schoolRadius=n=>Math.min(140,Math.sqrt(n)*5.0);   // 上限で頭打ちにして、大群ほど密にする
 const PSTEP=4, PN=104;            // 先頭の軌跡を4px刻みで416pxぶん保持する
 /* 表に出さない副効果の係数（1レベルあたり） */
 const TUNE={ lureSchoolSize:0.12, sonarChestRate:0.15 };
@@ -688,13 +688,13 @@ function makeSchool(x,y,count){
 }
 function manageWorld(dt){
   const B=S.boat, p=S.t/GAME_TIME;
-  const target=14-Math.floor(p*6), DESP=1000;
+  const target=14+Math.floor(p*10), DESP=1000;
   for(let i=S.schools.length-1;i>=0;i--){
     const s=S.schools[i];
     if(s.alive<=0 || Math.hypot(s.cx-B.x,s.cy-B.y)>DESP){ S.totalFish-=s.alive; S.schools.splice(i,1); }
   }
   let guard=0;
-  const cap=9000*(1+TUNE.lureSchoolSize*(S.up.lure-1));  // 群れが大きくなる分、総数上限も上げる
+  const cap=20000*(1+TUNE.lureSchoolSize*(S.up.lure-1));  // 終盤は海を埋める。集魚のぶん更に上げる
   while(S.schools.length<target && S.totalFish<cap && guard++<6){
     const q=p*p;   // 規模は後半で一気に伸ばす。序盤は小さい群れを次々に乗り換えるテンポを優先
     const n=Math.round(rnd(50+q*850, 150+q*1450)*(1+TUNE.lureSchoolSize*(S.up.lure-1)));  // 隠し効果：集魚で群れが大きくなる
@@ -1323,9 +1323,9 @@ function startGame(){
   hud.classList.add('on');
   lastSec=GAME_TIME;
 }
-const RANKS=[[400,'見習い','まだ竿が重い。'],[1000,'一人前','群れを見つける目はできた。'],
-  [1900,'舵取り','船べりが賑やかになってきた。'],[3000,'漁労長','海の色で群れが読める。'],
-  [4500,'竿頭','船が一本釣りの機械になった。'],[1e9,'伝説の竿頭','この海の話は語り草になる。']];
+const RANKS=[[500,'見習い','まだ竿が重い。'],[1200,'一人前','群れを見つける目はできた。'],
+  [2200,'舵取り','船べりが賑やかになってきた。'],[3500,'漁労長','海の色で群れが読める。'],
+  [5500,'竿頭','船が一本釣りの機械になった。'],[1e9,'伝説の竿頭','この海の話は語り草になる。']];
 function endGame(){
   S.mode='result'; hud.classList.remove('on');
   const nb=S.score>S.best;
