@@ -624,27 +624,27 @@ function initAssets(){
 }
 
 /* ================= 魚群 ================= */
-const HN=22, HSTEP=1/30;          // 群れの軌跡を 33ms 刻みで 0.73 秒ぶん保持する
+const PSTEP=4, PN=104;            // 先頭の軌跡を4px刻みで416pxぶん保持する
 function makeSchool(x,y,count){
   const rx=Math.min(190,Math.sqrt(count)*5.0), ry=rx*0.6;
-  const ang=rnd(0,TAU);
-  const s={x,y,ang,hd:ang,sp:rnd(9,18),rx,ry,turn:0,k:1,smear:0,alive:count,n0:count,
-    pulse:rnd(0,TAU), hi:0, hacc:0, hist:new Float32Array(HN*5), fish:new Array(count)};
-  for(let i=0;i<HN;i++){
-    const b=i*5;
-    s.hist[b]=x; s.hist[b+1]=y; s.hist[b+2]=Math.cos(ang); s.hist[b+3]=Math.sin(ang); s.hist[b+4]=ang;
+  const ang=rnd(0,TAU), ca=Math.cos(ang), sa=Math.sin(ang);
+  const hx=x+ca*rx, hy=y+sa*rx;   // x,y は群れの胴体中心。先頭はその前方
+  const s={x:hx, y:hy, cx:x, cy:y, ca:ang, ang, hd:ang, sp:rnd(9,18), rx, ry,
+    turn:0, k:1, pulse:rnd(0,TAU), pi:0, pfrac:0,
+    path:new Float32Array(PN*5), alive:count, n0:count, fish:new Array(count)};
+  for(let i=0;i<PN;i++){                       // 初期軌跡はまっすぐ後ろへ
+    const b=(((0-i)%PN)+PN)%PN*5;
+    s.path[b]=hx-ca*i*PSTEP; s.path[b+1]=hy-sa*i*PSTEP;
+    s.path[b+2]=ca; s.path[b+3]=sa; s.path[b+4]=ang;
   }
-  // 伝播の速さは体長に対して一定。大きい群れほど尻尾までの遅れが長くなる
-  const maxLag=Math.min(0.52, rx/210)/HSTEP;
-  s.avgLag=Math.max(1,Math.min(HN-1,Math.round(maxLag*0.5)));
   for(let i=0;i<count;i++){
     const a=rnd(0,TAU), u=Math.pow(Math.random(),0.42), r=Math.random();
-    const ox=Math.cos(a)*u*rx, oy=Math.sin(a)*u*ry;
-    s.fish[i]={ox, oy, d:(r<.3?2:(r<.66?1:0)),
-      ph:rnd(0,TAU), ps:rnd(2.2,4.4), alive:true, wx:x, wy:y, a:ang,
-      lag:Math.max(0,Math.min(HN-1, Math.round((rx-ox)/(2*rx)*maxLag*rnd(0.8,1.25))))};
+    const ox=Math.cos(a)*u*rx;
+    s.fish[i]={d:rx-ox, oy:Math.sin(a)*u*ry, d0:rx-ox, // d=先頭からの弧長距離
+      dd:(r<.3?2:(r<.66?1:0)),
+      ph:rnd(0,TAU), ps:rnd(2.2,4.4), alive:true, wx:hx, wy:hy, a:ang};
   }
-  s.fish.sort((p,q)=>q.d-p.d);
+  s.fish.sort((p,q)=>q.dd-p.dd);
   return s;
 }
 function manageWorld(dt){
@@ -652,7 +652,7 @@ function manageWorld(dt){
   const target=14+Math.floor(p*10), DESP=900;
   for(let i=S.schools.length-1;i>=0;i--){
     const s=S.schools[i];
-    if(s.alive<=0 || Math.hypot(s.x-B.x,s.y-B.y)>DESP){ S.totalFish-=s.alive; S.schools.splice(i,1); }
+    if(s.alive<=0 || Math.hypot(s.cx-B.x,s.cy-B.y)>DESP){ S.totalFish-=s.alive; S.schools.splice(i,1); }
   }
   let guard=0;
   while(S.schools.length<target && S.totalFish<9000 && guard++<6){
@@ -682,40 +682,54 @@ function updateSchools(dt){
     s.turn=clamp(s.turn+rnd(-1,1)*dt*2.6,-0.7,0.7);
     s.ang+=s.turn*dt;
     s.pulse+=dt*1.7;
-    const sp=s.sp*(1+0.18*Math.sin(s.pulse));   // 群れ全体の速度がゆっくり脈打つ
-    let vx=Math.cos(s.ang)*sp, vy=Math.sin(s.ang)*sp;
-    const dx=B.x-s.x, dy=B.y-s.y, di=Math.hypot(dx,dy)||1;
-    if(lr>0 && di<lr){ const f=lf*(1-di/lr); vx+=dx/di*f; vy+=dy/di*f; }
-    if(di<78){ const f=7*(1-di/78); vx-=dx/di*f; vy-=dy/di*f; }
-    s.x+=vx*dt; s.y+=vy*dt;
-    let dh=Math.atan2(vy,vx)-s.hd;              // 先頭の向きは滑らかに変える
+    const sp=s.sp*(1+0.18*Math.sin(s.pulse));
+    let tx=Math.cos(s.ang), ty=Math.sin(s.ang), react=0;
+    const dx=B.x-s.cx, dy=B.y-s.cy, di=Math.hypot(dx,dy)||1;
+    if(lr>0 && di<lr){                          // 集魚：船の方へ舵を切らせる
+      const w=lf/12*(1-di/lr);
+      tx+=dx/di*w; ty+=dy/di*w; react=Math.max(react,Math.min(1,w/1.4));
+    }
+    if(di<78){                                  // 逃走：少しだけ進路を変える程度に留める
+      const w=1.3*(1-di/78);
+      tx-=dx/di*w; ty-=dy/di*w; react=Math.max(react,Math.min(0.35,w));  // 角速度は上げすぎない（周回防止）
+    }
+    let dh=Math.atan2(ty,tx)-s.hd;
     while(dh>Math.PI) dh-=TAU;
     while(dh<-Math.PI) dh+=TAU;
-    s.hd+=dh*Math.min(1,dt*5);
-    s.hacc+=dt;
-    while(s.hacc>=HSTEP){                       // 先頭の軌跡を記録
-      s.hacc-=HSTEP; s.hi=(s.hi+1)%HN;
-      const b=s.hi*5;
-      s.hist[b]=s.x; s.hist[b+1]=s.y;
-      s.hist[b+2]=Math.cos(s.hd); s.hist[b+3]=Math.sin(s.hd); s.hist[b+4]=s.hd;
+    // 旋回半径が群れの大きさを下回らないよう角速度を抑える。
+    // ただし船に反応しているときは強く曲がってよい
+    const wmax=sp/(40+s.rx*1.2)*(1+react*5);
+    s.hd+=clamp(dh,-wmax*dt,wmax*dt);
+    const c0=Math.cos(s.hd), s0=Math.sin(s.hd);
+    s.x+=c0*sp*dt; s.y+=s0*sp*dt;               // 動くのは先頭だけ
+    s.pfrac+=sp*dt;
+    while(s.pfrac>=PSTEP){                      // 4px進むごとに軌跡を1点刻む
+      s.pfrac-=PSTEP; s.pi=(s.pi+1)%PN;
+      const b=s.pi*5;
+      s.path[b]=s.x; s.path[b+1]=s.y; s.path[b+2]=c0; s.path[b+3]=s0; s.path[b+4]=s.hd;
     }
     const kt=0.28+0.72*Math.sqrt(s.alive/s.n0);
     s.k+=(kt-s.k)*Math.min(1,dt*0.8);
-    const hb=s.hi*5, ob=((s.hi+1)%HN)*5;        // 最新と最古の差＝群れの伸び具合
-    let sd=s.hist[hb+4]-s.hist[ob+4];
-    while(sd>Math.PI) sd-=TAU;
-    while(sd<-Math.PI) sd+=TAU;
-    s.smear=Math.hypot(s.hist[hb]-s.hist[ob], s.hist[hb+1]-s.hist[ob+1])+s.rx*s.k*Math.min(1.6,Math.abs(sd));
-    if(Math.abs(s.x-B.x)>VW*0.8+s.rx || Math.abs(s.y-B.y)>VH*0.9+s.rx) continue;
-    const fs=s.fish, k=s.k, hi=s.hi, H=s.hist;
+    const k=s.k, P=s.path, pi=s.pi, pf=s.pfrac;
+    {                                           // 胴体の中心（判定・影・魚探はここを使う）
+      const t=(s.rx*k+pf)/PSTEP;
+      const i0=Math.min(PN-2,t|0), fr=t-i0;
+      const A=(((pi-i0)%PN)+PN)%PN*5, Bb=(((pi-i0-1)%PN)+PN)%PN*5;
+      s.cx=P[A]+(P[Bb]-P[A])*fr; s.cy=P[A+1]+(P[Bb+1]-P[A+1])*fr; s.ca=P[A+4];
+    }
+    if(Math.abs(s.cx-B.x)>VW*0.8+s.rx || Math.abs(s.cy-B.y)>VH*0.9+s.rx) continue;
+    const fs=s.fish;
     for(let i=0;i<fs.length;i++){
       const f=fs[i]; if(!f.alive) continue;
       f.ph+=f.ps*dt;
-      const b=((hi-f.lag+HN)%HN)*5;             // 自分の遅延ぶん過去の先頭を見る
-      const c=H[b+2], sn=H[b+3];
-      const ox=f.ox*k, oy=f.oy*k+Math.sin(f.ph)*1.3;
-      f.wx=H[b]+ox*c-oy*sn; f.wy=H[b+1]+ox*sn+oy*c;
-      f.a=H[b+4]+Math.sin(f.ph)*0.24;
+      const w=Math.sin(f.ph);
+      const t=(f.d*k+w*2.2+pf)/PSTEP;           // 先頭から何px後ろの軌跡上にいるか
+      const i0=Math.min(PN-2,Math.max(0,t|0)), fr=t-i0;
+      const A=(((pi-i0)%PN)+PN)%PN*5, Bb=(((pi-i0-1)%PN)+PN)%PN*5;
+      const x=P[A]+(P[Bb]-P[A])*fr, y=P[A+1]+(P[Bb+1]-P[A+1])*fr;
+      const c=P[A+2], sn=P[A+3], oy=f.oy*k+w*1.3;
+      f.wx=x-sn*oy; f.wy=y+c*oy;                // 軌跡の法線方向へ横オフセット
+      f.a=P[A+4]+w*0.24;
     }
   }
 }
@@ -753,7 +767,7 @@ function updateFishing(dt){
   const B=S.boat, rx=stat.rx(), ry=stat.ry(), rate=stat.rate();
   const up=[], dn=[];
   for(const s of S.schools){
-    if(Math.abs(s.x-B.x)>rx+s.rx*s.k+s.smear+12 || Math.abs(s.y-B.y)>ry+s.ry*s.k+s.smear+12) continue;
+    if(Math.abs(s.cx-B.x)>rx+s.rx*s.k+14 || Math.abs(s.cy-B.y)>ry+s.rx*s.k+14) continue;
     const fs=s.fish;
     for(let i=0;i<fs.length;i++){
       const f=fs[i]; if(!f.alive) continue;
@@ -783,7 +797,7 @@ function updateFishing(dt){
 function doCatch(fm,o){
   o.f.alive=false; o.s.alive--; S.totalFish--; S.score++; S.prog++;
   fm.pose=1; fm.pt=.28; placeCrew();
-  S.parts.push({x:o.f.wx, y:o.f.wy, x0:o.f.wx, y0:o.f.wy, t:0, dur:.28, a:o.f.a, d:o.f.d, fm});
+  S.parts.push({x:o.f.wx, y:o.f.wy, x0:o.f.wx, y0:o.f.wy, t:0, dur:.28, a:o.f.a, d:o.f.dd, fm});
   S.rings.push({x:o.f.wx, y:o.f.wy, t:0});
   sfxCatch();
   if(S.prog>=S.need) levelUp();
@@ -913,16 +927,15 @@ function drawSea(){
 function drawSchools(){
   const B=S.boat, ox=VW/2-B.x, oy=VH/2-B.y;
   for(const s of S.schools){
-    const ab=((s.hi-s.avgLag+HN)%HN)*5;          // 影は遅延後の群れの重心に置く
-    const cx=s.hist[ab]+ox, cy=s.hist[ab+1]+oy, krx=s.rx*s.k, kry=s.ry*s.k;
-    const mg=s.smear+40;
+    const cx=s.cx+ox, cy=s.cy+oy, krx=s.rx*s.k, kry=s.ry*s.k;
+    const mg=krx+40;
     if(cx<-krx-mg||cx>VW+krx+mg||cy<-kry-mg||cy>VH+kry+mg) continue;
     const dens=Math.min(1,Math.sqrt(s.alive/s.n0)*1.4);   // 残量が減れば影も薄れる
     ctx.fillStyle='#04202f';
     ctx.globalAlpha=.20*dens;
-    ctx.beginPath(); ctx.ellipse(cx,cy,krx*.95,kry*.95,s.hist[ab+4],0,TAU); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(cx,cy,krx*.95,kry*.95,s.ca,0,TAU); ctx.fill();
     ctx.globalAlpha=.24*dens;
-    ctx.beginPath(); ctx.ellipse(cx,cy,krx*.58,kry*.58,s.hist[ab+4],0,TAU); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(cx,cy,krx*.58,kry*.58,s.ca,0,TAU); ctx.fill();
     ctx.globalAlpha=1;
     const fs=s.fish;
     for(let i=0;i<fs.length;i++){
@@ -930,7 +943,7 @@ function drawSchools(){
       const x=f.wx+ox, y=f.wy+oy;
       if(x<-9||x>VW+9||y<-9||y>VH+9) continue;
       const ai=((Math.round(f.a/TAU*ANG)%ANG)+ANG)%ANG;
-      ctx.drawImage(fishAtlas, ai*CELL, f.d*CELL, CELL, CELL, (x-CELL/2)|0, (y-CELL/2)|0, CELL, CELL);
+      ctx.drawImage(fishAtlas, ai*CELL, f.dd*CELL, CELL, CELL, (x-CELL/2)|0, (y-CELL/2)|0, CELL, CELL);
     }
   }
 }
@@ -1052,7 +1065,7 @@ function drawRadar(){
   g.strokeStyle='rgba(234,243,244,.22)';      // 画面範囲
   g.strokeRect(C-VW/2*k, C-VH/2*k, VW*k, VH*k);
   for(const s of S.schools){                  // 魚群
-    const x=C+(s.x-B.x)*k, y=C+(s.y-B.y)*k;
+    const x=C+(s.cx-B.x)*k, y=C+(s.cy-B.y)*k;
     const r=clamp(2.2+Math.sqrt(s.alive)/5.5,2.2,10);
     g.globalAlpha=clamp(.35+s.alive/500,.35,.95);
     g.fillStyle='#4fd6b2';
