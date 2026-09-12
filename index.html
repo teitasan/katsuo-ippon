@@ -75,12 +75,15 @@
   .clock.warn{border-left-color:#ff8b6a}
 
   .catch{position:relative; text-align:right; padding:.3em 1em .45em 1.9em;
-    background:linear-gradient(180deg,#e0332c,#b31f1c);
+    background:linear-gradient(180deg,#e0332c,#b31f1c); transition:background .2s ease;
     clip-path:polygon(1.5em 0, 100% 0, 100% 100%, 0 100%);
     box-shadow:0 6px 22px -10px #000}
   .catch .k{font-size:.7em; letter-spacing:.24em; color:#ffd9c9; display:block; line-height:1}
-  .catch .v{font-size:2.1em; line-height:1.05; color:#fff; text-shadow:0 2px 0 rgba(0,0,0,.28)}
+  .catch .v{display:inline-block; transform-origin:100% 60%; font-size:2.1em; line-height:1.05;
+    color:#fff; text-shadow:0 2px 0 rgba(0,0,0,.28)}
   .catch .u{font-size:.9em; margin-left:.15em}
+  .catch.hot{background:linear-gradient(180deg,#f7c245,#d1830d)}
+  .catch.hot .k{color:#6b4a10}
 
   .lvbar{position:absolute; top:4.1em; left:50%; transform:translateX(-50%);
     width:30%; min-width:12em}
@@ -107,6 +110,22 @@
   .sonar{position:absolute; right:1em; bottom:1em; width:11em; text-align:right}
   .sonar canvas{width:100%; aspect-ratio:1; display:block; border-radius:50%;
     box-shadow:0 0 0 1px var(--line), 0 0 30px -8px rgba(63,191,160,.5), inset 0 0 20px rgba(0,0,0,.6)}
+
+  /* 入れ食い：メーターが溜まるほど縁が焼ける。溜まりきると判子が落ちる */
+  .fever{position:absolute; inset:0; pointer-events:none; opacity:0; z-index:2;
+    background:radial-gradient(115% 78% at 50% 50%, rgba(224,51,44,0) 42%, rgba(224,51,44,.34) 100%);
+    box-shadow:inset 0 0 4.2em 1.5em rgba(224,51,44,.8), inset 0 0 1.5em .45em rgba(255,146,86,.6)}
+  .fever.hot{animation:fvpulse .48s ease-in-out infinite alternate}
+  @keyframes fvpulse{from{filter:brightness(.72)} to{filter:brightness(1.4)}}
+  @media (prefers-reduced-motion:reduce){ .fever.hot{animation:none; filter:brightness(1)} }
+  .fvbadge{position:absolute; top:6.2em; left:50%; display:flex; align-items:baseline; gap:.55em;
+    padding:.22em .9em .3em; opacity:0; transform:translate(-50%,0) scale(1.7);
+    background:linear-gradient(180deg,#e0332c,#a81d18); border:1px solid #ff8b6a; border-radius:2px;
+    box-shadow:0 .5em 1.5em -.4em rgba(224,51,44,.95);
+    transition:opacity .14s ease, transform .16s cubic-bezier(.2,1.5,.4,1)}
+  .fvbadge.on{opacity:1; transform:translate(-50%,0) scale(1)}
+  .fvbadge b{font-size:.92em; font-weight:700; letter-spacing:.26em; color:#fff}
+  .fvbadge i{font-style:normal; font-size:1.1em; font-weight:700; color:#ffe6a8}
 
   .toast{position:absolute; left:50%; top:38%; transform:translate(-50%,-50%);
     display:flex; flex-direction:column; align-items:center; gap:.3em; text-align:center;
@@ -220,6 +239,7 @@
 </style>
 </head>
 <body>
+
 <div id="stage">
   <div id="frame">
     <canvas id="game" width="480" height="270"></canvas>
@@ -246,9 +266,12 @@
         <canvas id="radar" width="340" height="340"></canvas>
       </div>
 
+      <div class="fvbadge" id="fvbadge"><b id="fvlabel">入れ食い</b><i class="num" id="fvchain">0</i></div>
+
       <div class="toast" id="toast"><div class="hd">宝箱</div><div id="toastitems"></div></div>
     </div>
 
+    <div class="fever" id="fever"></div>
     <button class="mute" id="mute" title="音">♪</button>
     <div id="perfwrap"><div id="perf" hidden></div></div>
 
@@ -304,6 +327,7 @@ ja:{
  'title.h1a':'カツオ','title.h1b':'一本釣り','title.sub':'',
  'title.tap':'動かして出港','title.best':'自己ベスト {n}本',
  'hud.time':'ノコリ','hud.catch':'ギョカク','hud.catchUnit':'本','hud.next':'NEXT',
+ 'hud.fever':'入れ食い',
  'pick.eyebrow':'タイリョウ','pick.head':'どれを積む？',
  'up.crew.name':'漁師','up.crew.short':'漁師','up.crew.fl':'漁師が3人増える。釣り座が空いていなければ待機に回る。',
  'up.hull.name':'船体','up.hull.short':'船体','up.hull.fl':'船が大きくなり、釣り座と漁獲範囲が広がる。',
@@ -331,6 +355,7 @@ en:{
  'title.h1a':'FISH','title.h1b':'ON!','title.sub':'~Pole & Line',
  'title.tap':'Move to cast off','title.best':'BEST {n}',
  'hud.time':'TIME','hud.catch':'CATCH','hud.catchUnit':'','hud.next':'NEXT',
+ 'hud.fever':'ON FIRE',
  'pick.eyebrow':'BIG CATCH','pick.head':'What comes aboard?',
  'up.crew.name':'Crew','up.crew.short':'Crew','up.crew.fl':'Three more hands. They wait ashore if no berth is free.',
  'up.hull.name':'Hull','up.hull.short':'Hull','up.hull.fl':'A bigger boat: more berths and a wider catch area.',
@@ -568,6 +593,22 @@ function buildFisher(pi,row,pose){
   return {cv:c, ax:cx, ay:by, tip:{x:lx-cx, y:ly-by}};
 }
 
+/* ---------------- 「+1」 ---------------- */
+let popGold=null, popWhite=null;
+function buildPop(){
+  const rects=[[2,3,3,1],[3,2,1,3],[6,1,1,5],[5,2,1,1],[5,5,3,1]];   // + と 1
+  const mk=(col)=>{
+    const c=mkc(9,7), g=gx(c);
+    for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++){            // 海に埋もれないよう縁取り
+      if(!dx&&!dy) continue;
+      for(const r of rects) px(g,r[0]+dx,r[1]+dy,r[2],r[3],'#0a2233');
+    }
+    for(const r of rects) px(g,r[0],r[1],r[2],r[3],col);
+    return c;
+  };
+  popGold=mk('#ffd766'); popWhite=mk('#ffffff');
+}
+
 /* ---------------- 宝箱 ---------------- */
 let chestCv=null;
 function buildChest(){
@@ -651,9 +692,14 @@ const S={
   dir:{x:0,y:0}, aim:{x:0,y:0},
   schools:[], chests:[], crew:[], parts:[], wake:[], rings:[], spray:[], flash:[],
   up:{crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1},
-  seatX:[], seats:0, chestT:26, sprayAcc:0, start:{crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1}, totalFish:0, choices:[], caught:0, shake:0
+  seatX:[], seats:0, chestT:26, sprayAcc:0, start:{crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1}, totalFish:0, choices:[], caught:0,
+  rt:0, shake:0, pop:0, pops:[], burst:null, fv:0, fever:false, chain:0
 };
 const TONS=[9,19,49,119,199];
+/* 入れ食い：最大漁獲力の FV_NEED 倍を出し続けると溜まる。FV_TAU 秒で空になる */
+const FV_NEED=0.55, FV_TAU=1.4, FV_ON=1.0, FV_OFF=0.35, FV_CAP=1.3;
+let REDUCE=false;
+try{ REDUCE=matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){}
 const stat = {
   rate:(u)=>1.25*Math.pow(1.18,(u||S.up).rate),
   speed:(u)=>{u=u||S.up; return 52*Math.pow(1.12,u.engine)*(1+0.045*(u.hull-1));},
@@ -702,7 +748,7 @@ function saveBest(v){ try{localStorage.setItem('ippon.best',String(v));}catch(e)
 "use strict";
 /* ================= アセット構築 ================= */
 function initAssets(){
-  buildFishAtlas(); buildSea(); buildChest();
+  buildFishAtlas(); buildSea(); buildChest(); buildPop();
   for(let lv=1;lv<=5;lv++) boats.push(buildBoat(lv));
   for(let r=0;r<2;r++){ fishers[r]=[[],[]];
     for(let p=0;p<2;p++) for(let i=0;i<3;i++) fishers[r][p][i]=buildFisher(i,r,p); }
@@ -894,8 +940,22 @@ function doCatch(fm,o){
   fm.pose=1; fm.pt=.28; placeCrew();
   S.parts.push({x:o.f.wx, y:o.f.wy, x0:o.f.wx, y0:o.f.wy, t:0, dur:.28, a:o.f.a, d:o.f.dd, fm});
   S.rings.push({x:o.f.wx, y:o.f.wy, t:0});
+  S.pop=1;                                       // ギョカクの数字を弾ませる
+  if(S.fever) S.chain++;
+  S.fv=Math.min(FV_CAP, S.fv + 1/(Math.max(0.6, stat.power()*FV_NEED)*FV_TAU));
   sfxCatch();
   if(S.prog>=S.need) levelUp();
+}
+
+/* ================= 入れ食い ================= */
+function updateFever(dt){
+  S.fv=Math.max(0, S.fv-dt/FV_TAU);
+  if(!S.fever && S.fv>=FV_ON){ S.fever=true; S.chain=0; sfxFever(); }
+  else if(S.fever && S.fv<=FV_OFF){ S.fever=false; }
+}
+function bang(kind){                             // 決定的な瞬間の閃光と揺れ
+  S.burst={t:0, dur:kind==='chest'?.55:.45, kind, seed:rnd(0,TAU)};
+  S.shake=Math.min(1, S.shake+(kind==='chest'?.8:1));
 }
 
 /* ================= 強化 ================= */
@@ -910,8 +970,9 @@ function levelUp(){
   S.need=Math.round(9*Math.pow(1.28,S.level-1));
   S.mode='levelup';
   S.choices=rollChoices();
-  showCards();
-  sfxLevel();
+  bang('lv'); sfxLevel();
+  clearTimeout(levelUp._t);                      // 閃光を見せてからカードを開く
+  levelUp._t=setTimeout(()=>{ if(S.mode==='levelup') showCards(); }, 340);
 }
 function applyUpgrade(u){ u.apply(); layoutCrew(); }
 function openChest(){
@@ -922,7 +983,7 @@ function openChest(){
     const u=pool.length?pick(pool):UPG_BY.crew;
     u.apply(); got.push(t('up.'+u.id+'.name'));
   }
-  layoutCrew(); sfxChest();
+  layoutCrew(); bang('chest'); sfxChest();
   const counts={};
   got.forEach(g=>counts[g]=(counts[g]||0)+1);
   toastEl.querySelector('.hd').textContent = t(n===5?'chest.5':(n===3?'chest.3':'chest.1'));
@@ -981,7 +1042,11 @@ function updateParts(dt){
   for(let i=S.parts.length-1;i>=0;i--){
     const p=S.parts[i]; p.t+=dt;
     const u=p.t/p.dur;
-    if(u>=1){ S.flash.push({fm:p.fm, t:0}); S.parts.splice(i,1); continue; }
+    if(u>=1){
+      S.flash.push({fm:p.fm, t:0});
+      if(S.pops.length<64) S.pops.push({x:B.x+p.fm.tipx, y:B.y+p.fm.tipy, t:0, fv:S.fever});
+      S.parts.splice(i,1); continue;
+    }
     const tx=B.x+p.fm.tipx, ty=B.y+p.fm.tipy;
     p.x=p.x0+(tx-p.x0)*u;
     p.y=p.y0+(ty-p.y0)*u - Math.sin(u*Math.PI)*14;
@@ -989,6 +1054,7 @@ function updateParts(dt){
   }
   for(let i=S.rings.length-1;i>=0;i--){ const r=S.rings[i]; r.t+=dt; if(r.t>.36) S.rings.splice(i,1); }
   for(let i=S.flash.length-1;i>=0;i--){ const f=S.flash[i]; f.t+=dt; if(f.t>.16) S.flash.splice(i,1); }
+  for(let i=S.pops.length-1;i>=0;i--){ const p=S.pops[i]; p.t+=dt; if(p.t>.55) S.pops.splice(i,1); }
   for(let i=S.wake.length-1;i>=0;i--){ const w=S.wake[i]; w.t+=dt; if(w.t>1.1) S.wake.splice(i,1); }
   for(let i=S.spray.length-1;i>=0;i--){
     const s=S.spray[i]; s.t+=dt;
@@ -1021,7 +1087,7 @@ function drawSea(){
   ctx.translate(-((dx%64)+64)%64, -((dy%64)+64)%64);
   ctx.fillStyle=patSurf; ctx.fillRect(0,0,VW+64,VH+64);
   ctx.restore();
-  ctx.fillStyle=topGrad; ctx.fillRect(0,0,VW,VH);
+  ctx.fillStyle=topGrad; ctx.fillRect(-5,-5,VW+10,VH+10);   // 揺れたぶんの余白まで塗る
 }
 let fishDrawn=0;
 function drawSchools(){
@@ -1167,10 +1233,48 @@ function drawStick(){
   ctx.fillStyle='#ffe6a8'; ctx.fillRect(tx-1,ty-1,2,2);
   ctx.globalAlpha=1;
 }
+function drawPops(){
+  const B=S.boat, ox=VW/2-B.x, oy=VH/2-B.y;
+  for(const p of S.pops){
+    const u=p.t/.55, k=p.fv?2:1;
+    ctx.globalAlpha=Math.min(1, u<.12 ? u/.12 : (1-u)*(1-u)*1.4);
+    ctx.drawImage(p.fv?popWhite:popGold, 0,0,9,7,
+      Math.round(p.x+ox)-4*k, Math.round(p.y+oy-4-u*15), 9*k, 7*k);
+  }
+  ctx.globalAlpha=1;
+}
+function drawBurst(){
+  const b=S.burst; if(!b) return;
+  const u=b.t/b.dur;
+  if(u>=1){ S.burst=null; return; }
+  const gold=b.kind==='chest';
+  ctx.globalAlpha=(1-u)*(1-u)*(REDUCE?.16:.62);
+  ctx.fillStyle=gold?'#ffe9b0':'#ffffff';
+  ctx.fillRect(0,0,VW,VH);
+  const cx=VW/2, cy=VH/2+bobPx;
+  ctx.globalAlpha=(1-u)*.85;
+  ctx.fillStyle=gold?'#f2b32c':'#eaf3f4';
+  const r0=14+u*150, len=30*(1-u);               // 放射線
+  for(let i=0;i<16;i++){
+    const a=i/16*TAU+b.seed, ca=Math.cos(a), sa=Math.sin(a);
+    for(let r=r0;r<r0+len;r+=2) ctx.fillRect(Math.round(cx+ca*r), Math.round(cy+sa*r*.62), 3, 3);
+  }
+  ctx.globalAlpha=(1-u)*.7; ctx.strokeStyle=gold?'#ffe9b0':'#eaf3f4'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.ellipse(cx, cy, 12+u*160, (12+u*160)*.62, 0,0,TAU); ctx.stroke();
+  ctx.globalAlpha=1;
+}
 function draw(){
   bobPx=Math.round(Math.sin(S.boat.bob)*1.2);
+  let sx=0, sy=0;
+  if(!REDUCE && S.shake>0.01){
+    const m=S.shake*S.shake*3.4;
+    sx=Math.round(Math.sin(S.rt*82)*m); sy=Math.round(Math.cos(S.rt*67)*m);
+  }
+  if(sx||sy) ctx.setTransform(1,0,0,1,sx,sy);
   drawSea(); drawSchools(); drawChests(); drawRings(); drawWake();
-  drawBoat(); drawSpray(); drawLines(); drawStick();
+  drawBoat(); drawSpray(); drawLines(); drawPops();
+  if(sx||sy) ctx.setTransform(1,0,0,1,0,0);
+  drawBurst(); drawStick();
 }
 
 /* ================= 魚群探知機 ================= */
@@ -1301,8 +1405,18 @@ function bump(u,n){                     // デバッグ用：強化を直接増�
 }
 let lastTxt={};
 function setTxt(el,v){ if(lastTxt[el.id]!==v){ lastTxt[el.id]=v; el.textContent=v; } }
+const elCatch=document.querySelector('.catch'), elFever=document.getElementById('fever');
+const elFvBadge=document.getElementById('fvbadge'), elFvChain=document.getElementById('fvchain');
 function updateHUD(){
   const rem=Math.max(0,GAME_TIME-S.t);
+  elScore.style.transform = S.pop>0.01 ? 'scale('+(1+0.26*S.pop)+')' : '';
+  const playing=S.mode==='play';
+  const heat=clamp((S.fv-0.45)/0.55,0,1);            // 溜まってくると縁が焼けはじめる
+  elFever.style.opacity = heat? (S.fever?1:heat*0.75).toFixed(2) : '0';
+  elFever.classList.toggle('hot', S.fever && playing);
+  elCatch.classList.toggle('hot', S.fever);
+  elFvBadge.classList.toggle('on', S.fever && playing);   // 3択の見出しと重なるので伏せる
+  if(S.fever) setTxt(elFvChain, S.chain+t('hud.catchUnit'));
   setTxt(elTime, rem>10 ? Math.floor(rem/60)+':'+String(Math.floor(rem%60)).padStart(2,'0') : rem.toFixed(1));
   elClock.classList.toggle('warn', rem<=15);
   setTxt(elScore, fmt(S.score));
@@ -1357,7 +1471,7 @@ function showCards(){
   const first=cardsEl.firstChild; if(first) first.focus({preventScroll:true});
 }
 function choose(i){
-  if(S.mode!=='levelup') return;
+  if(S.mode!=='levelup' || !scrLevel.classList.contains('on')) return;
   applyUpgrade(S.choices[i]);
   scrLevel.classList.remove('on');
   S.mode='play';
@@ -1372,7 +1486,8 @@ const scrResult=document.getElementById('result'), promptEl=document.getElementB
 function reset(){
   S.t=0; S.started=false; S.score=0; S.level=1; S.need=9; S.prog=0; S.totalFish=0; S.chestT=20;
   S.schools.length=0; S.chests.length=0; S.crew.length=0;
-  S.parts.length=0; S.wake.length=0; S.rings.length=0; S.spray.length=0; S.flash.length=0;
+  S.parts.length=0; S.wake.length=0; S.rings.length=0; S.spray.length=0; S.flash.length=0; S.pops.length=0;
+  S.fv=0; S.fever=false; S.chain=0; S.pop=0; S.shake=0; S.burst=null;
   S.up={crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1};
   S.start={crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1};
   Object.assign(S.boat,{x:0,y:0,vx:0,vy:0,hd:0,sp:0,face:1,bob:0});
@@ -1400,6 +1515,7 @@ function beginRun(){           // 最初の入力で走り出す
 const RANKS=[1500,3000,5000,7000,10000,1e9];
 function endGame(){
   S.mode='result'; S.started=false; hud.classList.remove('on');
+  S.fever=false; S.fv=0; elFever.style.opacity='0'; elFvBadge.classList.remove('on');
   const nb=S.score>S.best;
   if(nb){ S.best=S.score; saveBest(S.best); }
   document.getElementById('rscore').innerHTML=fmt(S.score)+'<span>'+t('res.scoreUnit')+'</span>';
@@ -1502,9 +1618,11 @@ function sfxCatch(){
   const now=AC.currentTime;
   if(now-lastCatchS<.026) return;
   lastCatchS=now;
-  tone(rnd(640,1020),.07,'triangle',.055,1.7);
+  const up=1+0.95*Math.min(1,S.chain/40);        // 連が伸びるほど高く
+  tone(rnd(640,1020)*up,.07,'triangle',.055,1.7);
   if(Math.random()<.5) splash(.03);
 }
+function sfxFever(){ [523,659,784,1046,1318].forEach((f,i)=>tone(f,.2,'square',.06,1.25,i*.045)); }
 function sfxLevel(){ [523,659,784].forEach((f,i)=>tone(f,.22,'triangle',.09,1,i*.07)); }
 function sfxPick(){ tone(880,.12,'square',.05,1.2); }
 function sfxChest(){ [392,523,659,784,1046].forEach((f,i)=>tone(f,.26,'triangle',.08,1,i*.06)); }
@@ -1552,10 +1670,14 @@ function tick(now){
   const raw=(now-last)/1000; last=now;
   const dt=raw>.05?.05:raw;
   const p0=performance.now();
+  S.rt+=dt;
+  S.pop=Math.max(0,S.pop-dt*4.2);
+  S.shake=Math.max(0,S.shake-dt*3.4);
+  if(S.burst) S.burst.t+=dt;
   if(S.mode==='play'){
     if(S.started) S.t+=dt;
     updateBoat(dt); manageWorld(dt); updateSchools(dt);
-    if(S.started) updateFishing(dt);
+    if(S.started){ updateFishing(dt); updateFever(dt); }
     updateParts(dt);
     if(S.started){ tickCountdown(); if(S.t>=GAME_TIME) endGame(); }
   }
@@ -1573,6 +1695,7 @@ function applyLang(){
   set('tapHint','title.tap'); set('retry','res.retry');
   set('lblTime','hud.time'); set('lblCatch','hud.catch'); set('lblCatchUnit','hud.catchUnit');
   set('lvlabel','hud.next');
+  set('fvlabel','hud.fever');
   set('lblPickEyebrow','pick.eyebrow'); set('lblPickHead','pick.head'); set('lblResHead','res.head');
   document.querySelectorAll('#stats .chip b[data-k]').forEach(b=>{ b.textContent=t(b.dataset.k); });
   document.getElementById('titlebest').textContent = S.best ? t('title.best',{n:fmt(S.best)}) : '';
