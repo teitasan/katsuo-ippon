@@ -108,7 +108,7 @@
     box-shadow:0 0 0 1px var(--line), 0 0 30px -8px rgba(63,191,160,.5), inset 0 0 20px rgba(0,0,0,.6)}
 
   /* ---- overlays ---- */
-  .scrim{position:absolute; inset:0; display:none; place-items:center; padding:1.5em; cursor:default;
+  .scrim{position:absolute; inset:0; display:none; place-items:center; padding:.9em; cursor:default;
     background:radial-gradient(120% 90% at 50% 40%, rgba(4,26,42,.86), rgba(2,12,20,.95));
     -webkit-backdrop-filter:blur(3px); backdrop-filter:blur(3px); pointer-events:auto}
   .scrim.on{display:grid}
@@ -145,16 +145,16 @@
   /* level up */
   #levelup .box{text-align:center}
   .lvhd{font-size:.78em; letter-spacing:.44em; color:var(--gold); margin-bottom:.25em}
-  .lvsub{font-size:1.5em; margin-bottom:1.1em; color:var(--foam)}
+  .lvsub{font-size:1.4em; margin-bottom:.75em; color:var(--foam)}
   .cards{display:flex; gap:1em; justify-content:center; align-items:stretch; flex-wrap:wrap}
-  .card{position:relative; display:flex; flex-direction:column; width:12em; padding:1.1em .9em 1em; text-align:center;
+  .card{position:relative; display:flex; flex-direction:column; width:12em; padding:.8em .8em .75em; text-align:center;
     background:linear-gradient(180deg,#432e1b,#2c1d10);
     border:1px solid #6b4a26; border-top:3px solid var(--gold); border-radius:2px;
     box-shadow:0 18px 34px -18px #000; cursor:pointer;
     transition:transform .14s ease, box-shadow .14s ease, border-color .14s ease}
   .card:hover{transform:translateY(-6px); border-color:var(--gold); box-shadow:0 26px 40px -18px #000}
   .card .no{position:absolute; top:.4em; left:.55em; font-size:.66em; color:#9c7c50}
-  .card canvas{width:3.4em; height:3.4em; image-rendering:pixelated; margin:.2em auto .55em; display:block}
+  .card canvas{width:2.7em; height:2.7em; image-rendering:pixelated; margin:.15em auto .4em; display:block}
   .card .nm{font-size:1.05em; font-weight:700; color:#ffe9bd}
   .card .lv{font-size:.7em; letter-spacing:.16em; color:var(--gold); margin-top:.15em}
   .card .val{display:flex; align-items:baseline; justify-content:center; gap:.3em; flex-wrap:nowrap;
@@ -165,9 +165,9 @@
   .card .val.down b{color:#ff8b6a}
   .card .val i{font-style:normal; font-size:.78em; color:#c7ab82}
   .card .ef{font-size:.76em; color:#e2cda6; margin-top:.5em; line-height:1.5}
-  .card .fl{font-size:.7em; color:#a98f6b; margin:.5em 0 .7em; line-height:1.5}
-  .card .tr{margin:.6em 0 .7em; display:flex; flex-direction:column; gap:.35em}
-  .card .tr div{font-size:.72em; line-height:1.4}
+  .card .fl{font-size:.7em; color:#a98f6b; margin:.45em 0 .6em; line-height:1.4}
+  .card .tr{margin:.5em 0 .6em; display:flex; flex-direction:column; gap:.28em}
+  .card .tr div{font-size:.72em; line-height:1.3}
   .card .tr b{display:block; font-weight:700; letter-spacing:.08em}
   .card .tr em{font-style:normal; color:#ad967a}
   .card .tr .g b{color:#7fe0c4}
@@ -180,35 +180,49 @@
   .card.dim{opacity:.45}
   .card.max{opacity:.55}
 
-  /* 釣り座＝甲板の見取り図。上段が向こう舷、下段が手前 */
-  .racklbl{margin:1.3em 0 .5em; font-size:.66em; letter-spacing:.42em; color:var(--dim)}
-  .rack{display:grid; grid-template-columns:repeat(5,4.6em); gap:.4em;
-    justify-content:center; margin:0 auto}
-  .slot{position:relative; min-height:4.3em; padding:.35em .2em .3em; border-radius:2px;
-    background:rgba(10,31,46,.82); border:1px solid var(--line);
-    display:flex; flex-direction:column; align-items:center; gap:.1em;
-    transition:border-color .12s, background .12s, transform .12s}
-  .slot canvas{width:1.5em; height:1.5em; image-rendering:pixelated; display:block}
-  .slot .sv{font-size:.72em; font-weight:700; color:var(--gold);
+  /* 釣り座＝船の絵。艫（左）から舳先（右）へ10人が等間隔で並ぶ */
+  .racklbl{margin:.8em 0 .3em; font-size:.66em; letter-spacing:.42em; color:var(--dim)}
+  .rack{position:relative; width:56em; max-width:100%; margin:0 auto}
+  .berths{position:relative; z-index:2; display:grid; grid-template-columns:repeat(10,1fr);
+    gap:.15em; padding:0 2.8em 0 4.8em; align-items:end}
+  .berth{position:relative; display:flex; flex-direction:column; align-items:center;
+    justify-content:flex-end; min-height:5.8em; padding:.15em .1em 0; border-radius:2px 2px 0 0;
+    transition:background .12s ease, transform .12s ease}
+  .berth .bn{font-size:.54em; color:#3f6379; line-height:1}
+  .berth .bt{font-size:.56em; line-height:1.3; text-align:center; margin-top:.2em}
+  .berth .bt b{display:block; font-weight:700}
+  .berth .bt .g{color:#7fe0c4}
+  .berth .bt .b{color:#ff8b6a}
+  .berth .bv{font-size:.72em; font-weight:700; color:var(--gold); margin:.2em 0 .05em;
     font-family:"M PLUS 1 Code",ui-monospace,monospace; font-variant-numeric:tabular-nums}
-  .slot .st{font-size:.58em; line-height:1.35; text-align:center; letter-spacing:.04em}
-  .slot .st b{display:block; font-weight:700}
-  .slot .st .g{color:#7fe0c4} .slot .st .b{color:#ff8b6a}
-  .slot .sn{position:absolute; top:.15em; left:.3em; font-size:.54em; color:#48697d}
-  .slot.j-fisher  {border-left:3px solid #3f86b8}
-  .slot.j-engineer{border-left:3px solid #8296a3}
-  .slot.j-radar   {border-left:3px solid #3fbfa0}
-  .slot.j-chum    {border-left:3px solid #c08a44}
-  .slot.empty{border-style:dashed; border-color:#28556f; background:rgba(10,31,46,.35)}
-  .slot.empty .sv{color:var(--dim); font-weight:500}
-  .rack.armed .slot{cursor:pointer}
-  .rack.armed .slot:hover, .slot.over{border-color:var(--gold); background:rgba(242,179,44,.16); transform:translateY(-3px)}
-  .rack.armed .slot.taken:hover, .slot.taken.over{border-color:var(--hata); background:rgba(224,51,44,.18)}
-  .rackhint{margin-top:.7em; min-height:1.5em; font-size:.78em; color:var(--mist);
+  .berth canvas{display:block; image-rendering:pixelated; height:2.9em; width:auto; margin-bottom:-.15em}
+  .berth .bx{width:1.5em; height:2.7em; border:1px dashed #2a5871; border-radius:1px}
+  .berth.empty .bv{color:#4e6f82; font-weight:500}
+  .rack.armed .berth{cursor:pointer}
+  .rack.armed .berth:hover, .berth.over{background:rgba(242,179,44,.2); transform:translateY(-3px)}
+  .rack.armed .berth.taken:hover, .berth.taken.over{background:rgba(224,51,44,.22)}
+  .hull{position:relative; z-index:1; height:2.4em; margin-top:-.4em;
+    background:linear-gradient(180deg,#e9f0f3 0 46%, #d8322a 46% 60%, #15455f 60% 86%, #0e3149 86%);
+    clip-path:polygon(1.4% 0, 94.5% 0, 100% 30%, 99% 58%, 92.5% 100%, 3.4% 100%, 0 58%, .5% 26%);
+    box-shadow:inset 0 1px 0 #7c98a8}
+  .rack:after{content:''; position:absolute; z-index:0; left:4%; right:6%; bottom:-.35em; height:.9em;
+    background:radial-gradient(50% 50% at 50% 50%, rgba(4,32,47,.55), rgba(4,32,47,0) 70%)}
+  .cabin{position:absolute; z-index:3; left:1.2em; bottom:2.3em; width:3.3em; height:3em;
+    background:#eef4f6; border-top:.22em solid #d8322a}
+  .cabin i{position:absolute; top:1em; left:.5em; width:.62em; height:.85em; background:#123b52;
+    box-shadow:1.25em 0 0 #123b52}
+  .mast{position:absolute; z-index:3; left:4.3em; bottom:5.2em; width:.18em; height:2.1em; background:#8a6a3f}
+  .mast:before{content:''; position:absolute; left:.18em; top:0; width:1.1em; height:.5em; background:#d8322a}
+  .mast:after{content:''; position:absolute; left:.18em; top:.5em; width:.9em; height:.38em; background:#f2b32c}
+  .rackhint{margin-top:.6em; min-height:1.4em; font-size:.78em; color:var(--mist);
     font-family:"M PLUS 1 Code",ui-monospace,monospace; font-variant-numeric:tabular-nums}
   .rackhint em{font-style:normal; color:var(--gold); font-weight:700}
   .rackhint em.down{color:#ff8b6a}
   .rackhint i{font-style:normal; color:#ff8b6a; margin-left:.8em}
+  .skip{margin-top:.25em; padding:.3em 1.5em; font-size:.74em; letter-spacing:.2em;
+    color:var(--dim); background:rgba(10,31,46,.6); border:1px solid var(--line); border-radius:2px;
+    transition:color .12s, border-color .12s}
+  .skip:hover{color:var(--foam); border-color:var(--line2)}
   .ghost{position:absolute; z-index:40; pointer-events:none; opacity:.92;
     transform-origin:0 0; filter:drop-shadow(0 10px 18px rgba(0,0,0,.6))}
 
@@ -306,8 +320,13 @@
         <div class="lvsub disp" id="lblPickHead">どれを積む？</div>
         <div class="cards" id="cards"></div>
         <div class="racklbl" id="lblRack">釣り座</div>
-        <div class="rack" id="rack"></div>
+        <div class="rack" id="rack">
+          <div class="cabin"><i></i></div><div class="mast"></div>
+          <div class="berths" id="berths"></div>
+          <div class="hull"></div>
+        </div>
         <div class="rackhint" id="rackhint"></div>
+        <button class="skip" id="skipBtn">採用しない</button>
       </div>
     </div>
 
@@ -350,7 +369,7 @@ ja:{
  'job.engineer.name':'機関士','job.engineer.short':'機関','job.engineer.fl':'機関室を回す。人数だけ船が速くなる。',
  'job.radar.name':'レーダー員','job.radar.short':'魚探','job.radar.fl':'探知機に張りつく。人数だけ映る範囲が広がる。',
  'job.chum.name':'撒き餌係','job.chum.short':'集魚','job.chum.fl':'生き餌を撒く。人数だけ魚群が寄り、大きくなる。',
- 'pick.rack':'釣り座','pick.empty':'空き',
+ 'pick.rack':'釣り座','pick.skip':'採用しない',
  'pick.hint0':'乗せる人を選ぶ','pick.hint1':'どの釣り座に入れる？',
  'pick.power':'漁獲力 {a} → {b} 本/秒','pick.out':'{who} が降りる',
  'tr.double.name':'一本気','tr.double.fl':'たまに二匹まとめて抜く',
@@ -389,7 +408,7 @@ en:{
  'job.engineer.name':'Engineer','job.engineer.short':'Engine','job.engineer.fl':'Runs the engine room. More hands, more speed.',
  'job.radar.name':'Sonar Op','job.radar.short':'Sonar','job.radar.fl':'Glued to the scope. More hands, wider sweep.',
  'job.chum.name':'Chummer','job.chum.short':'Chum','job.chum.fl':'Throws live bait. Schools come closer and run bigger.',
- 'pick.rack':'BERTHS','pick.empty':'empty',
+ 'pick.rack':'BERTHS','pick.skip':'PASS',
  'pick.hint0':'Pick who comes aboard','pick.hint1':'Choose a berth',
  'pick.power':'RATE {a} → {b} fish/s','pick.out':'{who} goes ashore',
  'tr.double.name':'Doubler','tr.double.fl':'Sometimes lands two at once',
@@ -825,8 +844,8 @@ function powerOf(list,nom,L){
   return p*buffOf(list);
 }
 function cnt(list,job){ let n=0; for(const m of list) if(m.job===job) n++; return n; }
-/* 釣り座の並びは甲板の見取り図そのもの。0-4 が向こう舷、5-9 が手前 */
-function seatOf(k){ return {row:k<5?1:0, si:k%5}; }
+/* 釣り座は艫から舳先へ一列に数える。実際の甲板では左右の舷に交互に立つ */
+function seatOf(k){ return {row:k&1, si:k>>1}; }
 function recalc(){
   S.lv=lvOf(S.crewList,false);
   S.buff=buffOf(S.crewList);
@@ -1508,6 +1527,8 @@ function updateHUD(){
 /* ================= 3択 ================= */
 const cardsEl=document.getElementById('cards');
 const rackEl=document.getElementById('rack');
+const berthsEl=document.getElementById('berths');
+const skipBtn=document.getElementById('skipBtn');
 const hintEl=document.getElementById('rackhint');
 const scrLevel=document.getElementById('levelup');
 function ownValue(m){                     // その人ひとりぶんの効き
@@ -1549,32 +1570,40 @@ function showCards(){
   scrLevel.classList.add('on');
   const first=cardsEl.firstChild; if(first) first.focus({preventScroll:true});
 }
+const cutCache={};
+function crewCut(m){                     // 甲板に立っている姿だけを切り出す（竿は腰から下を捨てる）
+  const key=m.ji+'/'+m.pal;
+  if(cutCache[key]) return cutCache[key];
+  const sp=fishers[m.ji][0][0][m.pal];
+  const c=mkc(sp.cv.width, sp.ay+4), g=gx(c);
+  g.drawImage(sp.cv,0,0);
+  return (cutCache[key]=c);
+}
 function buildRack(){
-  rackEl.innerHTML='';
+  berthsEl.innerHTML='';
   for(let k=0;k<CAP;k++){
     const m=S.roster[k];
     const d=document.createElement('div');
-    d.className='slot'+(m?' taken j-'+m.job:' empty'); d.dataset.k=k;
-    const sn=document.createElement('div'); sn.className='sn'; sn.textContent=k+1;
-    d.append(sn);
+    d.className='berth'+(m?' taken':' empty'); d.dataset.k=k;
+    const bn=document.createElement('div'); bn.className='bn'; bn.textContent=k+1;
+    d.append(bn);
     if(m){
-      const c=document.createElement('canvas'); c.width=16;c.height=16;
-      c.getContext('2d').drawImage(ICONS[m.job],0,0);
-      const v=document.createElement('div'); v.className='sv'; v.textContent=ownValue(m).toFixed(2);
-      d.append(c,v);
       if(m.tr.length){
-        const tr=document.createElement('div'); tr.className='st';
+        const tr=document.createElement('div'); tr.className='bt';
         tr.innerHTML=m.tr.map(id=>traitRow(id,true)).join('');
         d.append(tr);
       }
+      const v=document.createElement('div'); v.className='bv'; v.textContent=ownValue(m).toFixed(2);
+      const c=crewCut(m).cloneNode(false);
+      c.getContext('2d').drawImage(crewCut(m),0,0);
+      d.append(v,c);
     }else{
-      const v=document.createElement('div'); v.className='sv'; v.style.marginTop='1.1em';
-      v.textContent=t('pick.empty'); d.append(v);
+      const x=document.createElement('div'); x.className='bx'; d.append(x);
     }
     d.addEventListener('pointerenter',()=>{ if(S.sel>=0) setHint(k); });
     d.addEventListener('pointerleave',()=>{ if(S.sel>=0) setHint(-1); });
     d.addEventListener('click',()=>{ if(S.sel>=0) placeAt(k); });
-    rackEl.appendChild(d);
+    berthsEl.appendChild(d);
   }
 }
 function selectCard(i){
@@ -1596,6 +1625,13 @@ function setHint(k){
 function placeAt(k){
   if(S.mode!=='levelup' || S.sel<0) return;
   board(S.choices[S.sel], k);
+  closePick();
+}
+function skipOffer(){            // 3人とも要らないときは見送れる
+  if(S.mode!=='levelup') return;
+  closePick();
+}
+function closePick(){
   scrLevel.classList.remove('on');
   S.sel=-1; S.mode='play';
   sfxPick();
@@ -1604,11 +1640,11 @@ function placeAt(k){
 let drag=null;
 function slotAt(x,y){
   const el=document.elementFromPoint(x,y);
-  const sl=el && el.closest ? el.closest('.slot') : null;
+  const sl=el && el.closest ? el.closest('.berth') : null;
   return sl ? +sl.dataset.k : -1;
 }
 function markOver(k){
-  [...rackEl.children].forEach((el,i)=>el.classList.toggle('over',i===k));
+  [...berthsEl.children].forEach((el,i)=>el.classList.toggle('over',i===k));
   setHint(k);
 }
 function grab(e,idx,el){
@@ -1653,7 +1689,7 @@ function dragEnd(e){
 }
 window.addEventListener('keydown',e=>{          // 1-3 で人を選び、1-9/0 で釣り座を選ぶ
   if(S.mode!=='levelup') return;
-  if(e.key==='Escape'||e.key==='Backspace'){ selectCard(-1); return; }
+  if(e.key==='Escape'||e.key==='Backspace'){ if(S.sel>=0) selectCard(-1); else skipOffer(); return; }
   if(e.key<'0'||e.key>'9') return;
   const n=e.key==='0'?10:parseInt(e.key,10);
   if(S.sel<0){ if(n<=3) selectCard(n-1); }
@@ -1667,8 +1703,8 @@ function reset(){
   S.schools.length=0; S.chests.length=0;
   S.parts.length=0; S.wake.length=0; S.rings.length=0; S.spray.length=0; S.flash.length=0;
   S.roster.length=0; for(let i=0;i<CAP;i++) S.roster.push(null);
-  S.roster[2]=makeMember('fisher',0);          // 出港時は両舷の真ん中に漁師2人だけ
-  S.roster[7]=makeMember('fisher',0);
+  S.roster[4]=makeMember('fisher',0);          // 出港時は船の真ん中に漁師2人だけ
+  S.roster[5]=makeMember('fisher',0);
   Object.assign(S.boat,{x:0,y:0,vx:0,vy:0,hd:0,sp:0,face:1,bob:0});
   S.dir.x=0; S.dir.y=0;
   S.stick.id=-1; S.stick.on=false; S.stick.f=0;
@@ -1762,6 +1798,7 @@ frameEl.addEventListener('pointerdown',()=>audioInit());
 frameEl.addEventListener('pointerup',endStick);
 frameEl.addEventListener('pointercancel',endStick);
 document.getElementById('retry').addEventListener('click',startGame);
+skipBtn.addEventListener('click',skipOffer);
 
 /* ================= 音 ================= */
 let AC=null,MG=null,muted=false,lastCatchS=0,noiseBuf=null,lastSec=GAME_TIME;
@@ -1871,7 +1908,7 @@ function applyLang(){
   set('lblTime','hud.time'); set('lblCatch','hud.catch'); set('lblCatchUnit','hud.catchUnit');
   set('lvlabel','hud.next');
   set('lblPickEyebrow','pick.eyebrow'); set('lblPickHead','pick.head'); set('lblResHead','res.head');
-  set('lblRack','pick.rack');
+  set('lblRack','pick.rack'); set('skipBtn','pick.skip');
   document.querySelectorAll('#stats .chip b[data-k]').forEach(b=>{ b.textContent=t(b.dataset.k); });
   document.getElementById('titlebest').textContent = S.best ? t('title.best',{n:fmt(S.best)}) : '';
   lastTxt={};
