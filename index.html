@@ -6,7 +6,7 @@
 <meta name="description" content="船を走らせるだけ、釣りは全自動。3分でカツオを何本獲れるかを競うスコアアタック。">
 <meta name="theme-color" content="#03121d">
 <meta name="color-scheme" content="dark">
-<meta property="og:title" content="カツオ一本釣り">
+<meta property="og:title" content="カツオ一本釣り / Fish On! ~Pole & Line">
 <meta property="og:description" content="マウスで進む向きだけを決める3分間のスコアアタック。魚群に船べりを寄せると漁師が自動で一本釣りする。">
 <meta property="og:type" content="website">
 <title>カツオ一本釣り</title>
@@ -127,6 +127,8 @@
   h1{margin:0; font-size:3.4em; line-height:1.1; text-wrap:balance;
     color:var(--foam); text-shadow:0 .06em 0 #08202f, 0 .5em 1.4em rgba(0,0,0,.6)}
   h1 em{font-style:normal; color:var(--hata)}
+  .tsub{margin:.25em 0 0; font-size:1em; letter-spacing:.06em; color:var(--mist)}
+  .tsub:empty{display:none}
   .lede{margin:.9em auto 0; max-width:26em; font-size:.92em; line-height:1.85; color:var(--mist)}
   .keys{display:flex; gap:1.4em; justify-content:center; margin-top:1.4em; flex-wrap:wrap}
   .keys div{font-size:.78em; color:var(--dim)}
@@ -220,11 +222,11 @@
     <div id="hud">
       <div class="topbar">
         <div class="clock" id="clock">
-          <span class="k">ノコリ</span><span class="v num" id="time">3:00</span>
+          <span class="k" id="lblTime">ノコリ</span><span class="v num" id="time">3:00</span>
         </div>
         <div class="catch">
-          <span class="k">ギョカク</span>
-          <span class="v disp num" id="score">0</span><span class="u">本</span>
+          <span class="k" id="lblCatch">ギョカク</span>
+          <span class="v disp num" id="score">0</span><span class="u" id="lblCatchUnit">本</span>
         </div>
       </div>
 
@@ -247,7 +249,8 @@
 
     <div class="scrim on" id="title">
       <div class="box">
-        <h1 class="disp">カツオ<em>一本釣り</em></h1>
+        <h1 class="disp"><span id="h1a">カツオ</span><em id="h1b">一本釣り</em></h1>
+        <div class="tsub" id="h1sub"></div>
         <button class="go disp" id="start">出港</button>
         <div class="best" id="titlebest"></div>
       </div>
@@ -255,15 +258,15 @@
 
     <div class="scrim" id="levelup">
       <div class="box">
-        <div class="lvhd">タイリョウ</div>
-        <div class="lvsub disp">どれを積む？</div>
+        <div class="lvhd" id="lblPickEyebrow">タイリョウ</div>
+        <div class="lvsub disp" id="lblPickHead">どれを積む？</div>
         <div class="cards" id="cards"></div>
       </div>
     </div>
 
     <div class="scrim" id="result">
       <div class="box">
-        <div class="rhd">リョウ シュウリョウ</div>
+        <div class="rhd" id="lblResHead">リョウ シュウリョウ</div>
         <div class="score disp num" id="rscore">0<span>本</span></div>
         <div class="rank" id="rrank"></div>
         <div class="grow num" id="rgrow"></div>
@@ -287,6 +290,77 @@
 const VW = 480, VH = 270;                 // 内部解像度（ピクセルアート基準）
 const M_PER_PX = 2;                       // 魚探の距離表示用（1px = 2m）
 const GAME_TIME = 180;
+
+/* ================= 文言 ================= */
+const STR={
+ja:{
+ 'title.h1a':'カツオ','title.h1b':'一本釣り','title.sub':'',
+ 'title.start':'出港','title.best':'自己ベスト {n}本',
+ 'hud.time':'ノコリ','hud.catch':'ギョカク','hud.catchUnit':'本','hud.next':'NEXT',
+ 'pick.eyebrow':'タイリョウ','pick.head':'どれを積む？',
+ 'up.crew.name':'漁師','up.crew.short':'漁師','up.crew.fl':'漁師が3人増える。釣り座が空いていなければ待機に回る。',
+ 'up.hull.name':'船体','up.hull.short':'船体','up.hull.fl':'船が大きくなり、釣り座と漁獲範囲が広がる。',
+ 'up.rate.name':'釣具','up.rate.short':'釣具','up.rate.fl':'漁師ひとりあたりの釣り上げが速くなる。',
+ 'up.engine.name':'機関','up.engine.short':'機関','up.engine.fl':'船の移動速度が上がる。',
+ 'up.sonar.name':'魚群探知機','up.sonar.short':'魚探','up.sonar.fl':'魚探に映る範囲が広がる。',
+ 'up.lure.name':'集魚装置','up.lure.short':'集魚','up.lure.fl':'魚群が船のほうへ寄ってくるようになる。',
+ 'pick.lvCrew':'漁師 +3人','pick.lv':'Lv{a} → Lv{b}',
+ 'pick.efCrew':'うち待機 {a}人　釣り座 {b}人','pick.efBerth':'釣り座 {b}人',
+ 'pick.efHull':'{a}t → {b}t船','pick.power':'漁獲力 {a} → {b} 本/秒',
+ 'unit.crew':'人','unit.rate':'本/秒','unit.knot':'ノット','unit.km':'km','unit.m':'m','unit.none':'なし',
+ 'chest.1':'宝箱','chest.3':'当たり','chest.5':'大当たり',
+ 'chest.item':'{name} 強化','chest.itemN':'{name} ×{n}',
+ 'res.head':'リョウ シュウリョウ','res.scoreUnit':'本',
+ 'rank.1':'見習い','rank.1.fl':'まだ竿が重い。',
+ 'rank.2':'一人前','rank.2.fl':'群れを見つける目はできた。',
+ 'rank.3':'舵取り','rank.3.fl':'船べりが賑やかになってきた。',
+ 'rank.4':'漁労長','rank.4.fl':'海の色で群れが読める。',
+ 'rank.5':'竿頭','rank.5.fl':'船が一本釣りの機械になった。',
+ 'rank.6':'伝説の竿頭','rank.6.fl':'この海の話は語り草になる。',
+ 'res.grow':'漁獲力 {a} → {b} 本/秒','res.growX':'×{c}','res.newbest':'自己ベスト更新',
+ 'res.from':'{v} から','res.retry':'もう一度','res.best':'自己ベスト {n}本'
+},
+en:{
+ 'title.h1a':'FISH','title.h1b':'ON!','title.sub':'~Pole & Line',
+ 'title.start':'CAST OFF','title.best':'BEST {n}',
+ 'hud.time':'TIME','hud.catch':'CATCH','hud.catchUnit':'','hud.next':'NEXT',
+ 'pick.eyebrow':'BIG CATCH','pick.head':'What comes aboard?',
+ 'up.crew.name':'Crew','up.crew.short':'Crew','up.crew.fl':'Three more hands. They wait ashore if no berth is free.',
+ 'up.hull.name':'Hull','up.hull.short':'Hull','up.hull.fl':'A bigger boat: more berths and a wider catch area.',
+ 'up.rate.name':'Tackle','up.rate.short':'Tackle','up.rate.fl':'Each hand lands fish faster.',
+ 'up.engine.name':'Engine','up.engine.short':'Engine','up.engine.fl':'The boat moves faster.',
+ 'up.sonar.name':'Sonar','up.sonar.short':'Sonar','up.sonar.fl':'The scope shows more of the sea.',
+ 'up.lure.name':'Chum Rig','up.lure.short':'Chum','up.lure.fl':'Schools drift toward the boat.',
+ 'pick.lvCrew':'+3 crew','pick.lv':'Lv{a} → Lv{b}',
+ 'pick.efCrew':'{a} standing by · {b} berths','pick.efBerth':'{b} berths',
+ 'pick.efHull':'{a}t → {b}t boat','pick.power':'RATE {a} → {b} fish/s',
+ 'unit.crew':'','unit.rate':'fish/s','unit.knot':'kn','unit.km':'km','unit.m':'m','unit.none':'none',
+ 'chest.1':'CHEST','chest.3':'GOOD HAUL','chest.5':'JACKPOT',
+ 'chest.item':'{name} up','chest.itemN':'{name} ×{n}',
+ 'res.head':'TRIP END','res.scoreUnit':'fish',
+ 'rank.1':'Apprentice','rank.1.fl':'The pole still feels heavy.',
+ 'rank.2':'Deckhand','rank.2.fl':"You've got an eye for the schools now.",
+ 'rank.3':'Helmsman','rank.3.fl':'The rail is getting crowded.',
+ 'rank.4':'Fishing Master','rank.4.fl':'You read the schools by the color of the water.',
+ 'rank.5':'Top Rod','rank.5.fl':'The boat has become a machine.',
+ 'rank.6':'Legendary Top Rod','rank.6.fl':"They'll tell stories about this trip.",
+ 'res.grow':'RATE {a} → {b} fish/s','res.growX':'×{c}','res.newbest':'NEW BEST',
+ 'res.from':'from {v}','res.retry':'ONE MORE','res.best':'BEST {n}'
+}};
+let LANG='ja';                 // Playables では SDK の getLanguage で決める
+function t(k,p){
+  let v=(STR[LANG]&&STR[LANG][k]);
+  if(v===undefined) v=STR.ja[k];
+  if(v===undefined) return k;
+  if(p) for(const n in p) v=v.split('{'+n+'}').join(p[n]);
+  return v;
+}
+let NUMFMT=new Intl.NumberFormat('ja-JP');
+function fmt(n){ return NUMFMT.format(n); }
+function setLang(code){
+  LANG=(code&&STR[code])?code:'ja';
+  NUMFMT=new Intl.NumberFormat(LANG==='en'?'en-US':'ja-JP');
+}
 
 const cv = document.getElementById('game');
 const ctx = cv.getContext('2d');
@@ -552,24 +626,12 @@ function buildSea(){
 
 /* ---------------- 強化定義 ---------------- */
 const UPG=[
-  {id:'crew', nm:'漁師', sh:'漁師', max:99,
-   fl:'漁師が3人増える。釣り座が空いていなければ待機に回る。',
-   lv:()=>S.up.crew, apply:()=>{S.up.crew+=3;}},
-  {id:'hull', nm:'船体', sh:'船体', max:5,
-   fl:'船が大きくなり、釣り座と漁獲範囲が広がる。',
-   lv:()=>S.up.hull, apply:()=>{S.up.hull=Math.min(5,S.up.hull+1);}},
-  {id:'rate', nm:'釣具', sh:'釣具', max:10,
-   fl:'漁師ひとりあたりの釣り上げが速くなる。',
-   lv:()=>S.up.rate, apply:()=>{S.up.rate++;}},
-  {id:'engine', nm:'機関', sh:'機関', max:10,
-   fl:'船の移動速度が上がる。',
-   lv:()=>S.up.engine, apply:()=>{S.up.engine++;}},
-  {id:'sonar', nm:'魚群探知機', sh:'魚探', max:6,
-   fl:'魚探に映る範囲が広がる。',
-   lv:()=>S.up.sonar, apply:()=>{S.up.sonar++;}},
-  {id:'lure', nm:'集魚装置', sh:'集魚', max:8,
-   fl:'魚群が船のほうへ寄ってくるようになる。',
-   lv:()=>S.up.lure, apply:()=>{S.up.lure++;}}
+  {id:'crew', max:99, lv:()=>S.up.crew, apply:()=>{S.up.crew+=3;}},
+  {id:'hull', max:5, lv:()=>S.up.hull, apply:()=>{S.up.hull=Math.min(5,S.up.hull+1);}},
+  {id:'rate', max:10, lv:()=>S.up.rate, apply:()=>{S.up.rate++;}},
+  {id:'engine', max:10, lv:()=>S.up.engine, apply:()=>{S.up.engine++;}},
+  {id:'sonar', max:6, lv:()=>S.up.sonar, apply:()=>{S.up.sonar++;}},
+  {id:'lure', max:8, lv:()=>S.up.lure, apply:()=>{S.up.lure++;}}
 ];
 const UPG_BY={}; UPG.forEach(u=>UPG_BY[u.id]=u);
 const ICONS={};
@@ -599,20 +661,20 @@ const stat = {
 };
 /* 表示は Lv ではなく実数で。漁師=稼働/総数、船体=最大乗船人数、魚探と集魚=初期比 */
 const SONAR_BASE=250, LURE_BASE=220;
-function fmtDist(m){ return m>=1000 ? (m/1000).toFixed(2)+'km' : Math.round(m)+'m'; }
+function fmtDist(m){ return m>=1000 ? (m/1000).toFixed(2)+t('unit.km') : Math.round(m)+t('unit.m'); }
 function valOf(id,u){
   let r={n:'',u:''};
   switch(id){
     case 'crew': {
       const s0=stat.seats(u), act=Math.min(u.crew,s0), cap=u.crew>=s0;
-      r={n:u.crew+'/'+act, h:u.crew+'/'+(cap?'<span class="cap">'+act+'</span>':act), u:'人', cap};
+      r={n:u.crew+'/'+act, h:u.crew+'/'+(cap?'<span class="cap">'+act+'</span>':act), u:t('unit.crew'), cap};
       break;
     }
-    case 'hull':   r={n:String(stat.seats(u)), u:'人'}; break;
-    case 'rate':   r={n:stat.rate(u).toFixed(2), u:'本/秒'}; break;
-    case 'engine': r={n:(stat.speed(u)*0.25).toFixed(1), u:'ノット'}; break;
+    case 'hull':   r={n:String(stat.seats(u)), u:t('unit.crew')}; break;
+    case 'rate':   r={n:stat.rate(u).toFixed(2), u:t('unit.rate')}; break;
+    case 'engine': r={n:(stat.speed(u)*0.25).toFixed(1), u:t('unit.knot')}; break;
     case 'sonar':  r={n:'+'+Math.round((stat.sonar(u)/SONAR_BASE-1)*100)+'%', u:''}; break;
-    case 'lure':   r = u.lure===0 ? {n:'なし', u:''}
+    case 'lure':   r = u.lure===0 ? {n:t('unit.none'), u:''}
                      : {n:'+'+Math.round((stat.lureR(u)/LURE_BASE-1)*100)+'%', u:''}; break;
   }
   if(!r.h) r.h=r.n;
@@ -851,16 +913,16 @@ function openChest(){
   for(let i=0;i<n;i++){
     const pool=UPG.filter(u=>u.lv()<u.max);
     const u=pool.length?pick(pool):UPG_BY.crew;
-    u.apply(); got.push(u.nm);
+    u.apply(); got.push(t('up.'+u.id+'.name'));
   }
   layoutCrew(); sfxChest();
   const counts={};
   got.forEach(g=>counts[g]=(counts[g]||0)+1);
-  toastEl.querySelector('.hd').textContent = n===5?'大当たり':(n===3?'当たり':'宝箱');
+  toastEl.querySelector('.hd').textContent = t(n===5?'chest.5':(n===3?'chest.3':'chest.1'));
   toastItems.innerHTML='';
   Object.keys(counts).forEach(k=>{
     const d=document.createElement('div'); d.className='it';
-    d.textContent = counts[k]>1 ? k+' ×'+counts[k] : k+' 強化';
+    d.textContent = counts[k]>1 ? t('chest.itemN',{name:k,n:counts[k]}) : t('chest.item',{name:k});
     toastItems.appendChild(d);
   });
   toastEl.classList.add('on');
@@ -1216,10 +1278,10 @@ function buildChips(){
     const d=document.createElement('div'); d.className='chip';
     const c=document.createElement('canvas'); c.width=16;c.height=16;
     c.getContext('2d').drawImage(ICONS[u.id],0,0);
-    const b=document.createElement('b'); b.textContent=u.sh;
+    const b=document.createElement('b'); b.dataset.k='up.'+u.id+'.short'; b.textContent=t('up.'+u.id+'.short');
     const i=document.createElement('i');
     d.append(c,b,i); elStats.appendChild(d);
-    d.title=u.nm+'（デバッグ中のみ 左クリック+1 / 右クリック-1 / Shiftで5段）';
+    d.title=t('up.'+u.id+'.name')+'（デバッグ中のみ 左クリック+1 / 右クリック-1 / Shiftで5段）';
     d.addEventListener('click',e=>{ if(!perf.on) return;
       e.preventDefault(); e.stopPropagation(); bump(u, e.shiftKey?5:1); });
     d.addEventListener('contextmenu',e=>{ if(!perf.on) return;
@@ -1240,7 +1302,7 @@ function updateHUD(){
   const rem=Math.max(0,GAME_TIME-S.t);
   setTxt(elTime, rem>10 ? Math.floor(rem/60)+':'+String(Math.floor(rem%60)).padStart(2,'0') : rem.toFixed(1));
   elClock.classList.toggle('warn', rem<=15);
-  setTxt(elScore, S.score.toLocaleString('en-US'));
+  setTxt(elScore, fmt(S.score));
   setTxt(elLvNum, S.prog+' / '+S.need);
   elFill.style.width=clamp(S.prog/S.need*100,0,100)+'%';
   UPG.forEach(u=>{
@@ -1263,9 +1325,9 @@ function showCards(){
     const no=document.createElement('div'); no.className='no'; no.textContent=idx+1;
     const c=document.createElement('canvas'); c.width=16;c.height=16;
     c.getContext('2d').drawImage(ICONS[u.id],0,0);
-    const nm=document.createElement('div'); nm.className='nm'; nm.textContent=u.nm;
+    const nm=document.createElement('div'); nm.className='nm'; nm.textContent=t('up.'+u.id+'.name');
     const lv=document.createElement('div'); lv.className='lv';
-    lv.textContent = u.id==='crew' ? '漁師 +3人' : ('Lv'+u.lv()+' → Lv'+(u.lv()+1));
+    lv.textContent = u.id==='crew' ? t('pick.lvCrew') : t('pick.lv',{a:u.lv(),b:u.lv()+1});
     const val=document.createElement('div'); val.className='val';
     val.innerHTML='<s>'+v0.h+'</s><em>→</em><b>'+v1.h+'</b>'+(v1.u?'<i>'+v1.u+'</i>':'');
     d.append(no,c,nm,lv,val);
@@ -1273,9 +1335,9 @@ function showCards(){
     let ef='';
     if(u.id==='crew'){
       const wait=Math.max(0,nu.crew-seats0);
-      ef = wait>0 ? ('うち待機 '+wait+'人　釣り座 '+seats0+'人') : ('釣り座 '+seats0+'人');
+      ef = wait>0 ? t('pick.efCrew',{a:wait,b:seats0}) : t('pick.efBerth',{b:seats0});
     }else if(u.id==='hull'){
-      ef=TONS[S.up.hull-1]+'t → '+TONS[nu.hull-1]+'t船';
+      ef=t('pick.efHull',{a:TONS[S.up.hull-1],b:TONS[nu.hull-1]});
     }else if(u.id==='sonar'){
       ef=fmtDist(stat.sonar(S.up)*M_PER_PX)+' → '+fmtDist(stat.sonar(nu)*M_PER_PX);
     }else if(u.id==='lure'){
@@ -1286,10 +1348,10 @@ function showCards(){
     const p0=stat.power(S.up), p1=stat.power(nu);
     if(p1>p0+0.05){
       const pw=document.createElement('div'); pw.className='pw';
-      pw.textContent='漁獲力 '+p0.toFixed(1)+' → '+p1.toFixed(1)+' 本/秒';
+      pw.textContent=t('pick.power',{a:p0.toFixed(1),b:p1.toFixed(1)});
       d.append(pw);
     }
-    const fl=document.createElement('div'); fl.className='fl'; fl.textContent=u.fl; d.append(fl);
+    const fl=document.createElement('div'); fl.className='fl'; fl.textContent=t('up.'+u.id+'.fl'); d.append(fl);
     d.addEventListener('click',()=>choose(idx));
     d.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){e.preventDefault();choose(idx);} });
     cardsEl.appendChild(d);
@@ -1329,26 +1391,24 @@ function startGame(){
   hud.classList.add('on');
   lastSec=GAME_TIME;
 }
-const RANKS=[[1500,'見習い','まだ竿が重い。'],[3000,'一人前','群れを見つける目はできた。'],
-  [5000,'舵取り','船べりが賑やかになってきた。'],[7000,'漁労長','海の色で群れが読める。'],
-  [10000,'竿頭','船が一本釣りの機械になった。'],[1e9,'伝説の竿頭','この海の話は語り草になる。']];
+const RANKS=[1500,3000,5000,7000,10000,1e9];
 function endGame(){
   S.mode='result'; hud.classList.remove('on');
   const nb=S.score>S.best;
   if(nb){ S.best=S.score; saveBest(S.best); }
-  document.getElementById('rscore').innerHTML=S.score.toLocaleString('en-US')+'<span>本</span>';
-  const r=RANKS.find(x=>S.score<x[0]);
-  document.getElementById('rrank').innerHTML=r[1]+'<small>'+r[2]+'</small>';
-  document.getElementById('rbestwrap').innerHTML = nb? '<span class="newbest">自己ベスト更新</span>':'';
+  document.getElementById('rscore').innerHTML=fmt(S.score)+'<span>'+t('res.scoreUnit')+'</span>';
+  const ri=RANKS.findIndex(x=>S.score<x)+1;
+  document.getElementById('rrank').innerHTML=t('rank.'+ri)+'<small>'+t('rank.'+ri+'.fl')+'</small>';
+  document.getElementById('rbestwrap').innerHTML = nb? '<span class="newbest">'+t('res.newbest')+'</span>':'';
   const p0=stat.power(S.start), p1=stat.power(S.up);
   document.getElementById('rgrow').innerHTML=
-    '漁獲力 <s>'+p0.toFixed(1)+'</s> → <b>'+p1.toFixed(1)+'</b> 本/秒 <em>×'+(p1/p0).toFixed(1)+'</em>';
+    t('res.grow',{a:'<s>'+p0.toFixed(1)+'</s>',b:'<b>'+p1.toFixed(1)+'</b>'})+' <em>'+t('res.growX',{c:(p1/p0).toFixed(1)})+'</em>';
   document.getElementById('rstats').innerHTML=
     UPG.map(u=>{
       const a=valOf(u.id,S.start), b=valOf(u.id,S.up);
-      return '<div>'+u.sh+'<b class="num">'+b.h+'<span>'+b.u+'</span></b><em>'+a.n+a.u+' から</em></div>';
+      return '<div>'+t('up.'+u.id+'.short')+'<b class="num">'+b.h+'<span>'+b.u+'</span></b><em>'+t('res.from',{v:a.n+a.u})+'</em></div>';
     }).join('');
-  document.getElementById('rbest').textContent='自己ベスト '+S.best.toLocaleString('en-US')+'本';
+  document.getElementById('rbest').textContent=t('res.best',{n:fmt(S.best)});
   scrResult.classList.add('on');
   sfxEnd();
 }
@@ -1469,7 +1529,7 @@ function perfTick(raw,u,d){
   elPerf.innerHTML=
     '<b'+(fps<50?' class="hot"':'')+'>'+fps.toFixed(1)+'</b> fps <u>'+ms.toFixed(1)+'ms</u>\n'+
     '更新 <i>'+up.toFixed(2)+'</i>  描画 <i'+hot(dr)+'>'+dr.toFixed(2)+'</i>  最悪 <i'+hot(perf.worst)+'>'+perf.worst.toFixed(1)+'</i> ms\n'+
-    '魚 <b>'+S.totalFish.toLocaleString('en-US')+'</b> 画面 <b>'+fishDrawn.toLocaleString('en-US')+'</b>  群 <b>'+S.schools.length+'</b>\n'+
+    '魚 <b>'+fmt(S.totalFish)+'</b> 画面 <b>'+fmt(fishDrawn)+'</b>  群 <b>'+S.schools.length+'</b>\n'+
     '漁師 <b>'+S.crew.length+'</b>  竿 <b>'+S.parts.length+'</b>  飛沫 <b>'+(S.spray.length+S.wake.length+S.rings.length)+'</b>\n'+
     '<u>チップ 左+1 右-1 Shiftで5段</u>';
   perf.acc=perf.n=perf.upd=perf.drw=perf.worst=0;
@@ -1499,11 +1559,32 @@ function tick(now){
   requestAnimationFrame(tick);
 }
 
+/* ================= 言語の適用 ================= */
+function applyLang(){
+  document.title = LANG==='en' ? 'Fish On! ~Pole & Line' : 'カツオ一本釣り';
+  const set=(id,k)=>{ const e=document.getElementById(id); if(e) e.textContent=t(k); };
+  set('h1a','title.h1a'); set('h1b','title.h1b'); set('h1sub','title.sub');
+  set('start','title.start'); set('retry','res.retry');
+  set('lblTime','hud.time'); set('lblCatch','hud.catch'); set('lblCatchUnit','hud.catchUnit');
+  set('lvlabel','hud.next');
+  set('lblPickEyebrow','pick.eyebrow'); set('lblPickHead','pick.head'); set('lblResHead','res.head');
+  document.querySelectorAll('#stats .chip b[data-k]').forEach(b=>{ b.textContent=t(b.dataset.k); });
+  document.getElementById('titlebest').textContent = S.best ? t('title.best',{n:fmt(S.best)}) : '';
+  lastTxt={};
+  updateHUD();
+  if(S.mode==='levelup') showCards();
+}
+window.setGameLang=c=>{ setLang(c); applyLang(); };   // Playables では getLanguage の結果を渡す
+window.addEventListener('keydown',e=>{                 // 検証用：デバッグ表示中に L で切り替え
+  if(perf.on && (e.key==='l'||e.key==='L')) window.setGameLang(LANG==='ja'?'en':'ja');
+});
+
 /* ================= 起動 ================= */
 initAssets(); initPatterns(); buildChips();
+try{ const q=new URLSearchParams(location.search).get('lang'); if(q) setLang(q); }catch(e){}
 S.best=loadBest();
 try{ if(localStorage.getItem('ippon.perf')==='1') perfToggle(true); }catch(e){}
-document.getElementById('titlebest').textContent = S.best? '自己ベスト '+S.best.toLocaleString('en-US')+'本' : '';
+applyLang();
 reset(); S.mode='title';
 requestAnimationFrame(tick);
 </script>
