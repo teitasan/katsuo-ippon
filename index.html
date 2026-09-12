@@ -111,7 +111,7 @@
   .scrim{position:absolute; inset:0; display:none; place-items:center; padding:.9em; cursor:default;
     background:radial-gradient(120% 90% at 50% 40%, rgba(4,26,42,.86), rgba(2,12,20,.95));
     -webkit-backdrop-filter:blur(3px); backdrop-filter:blur(3px); pointer-events:auto}
-  .scrim.on{display:grid}
+  .scrim.on{display:grid; align-content:center; justify-items:center; overflow:auto}
 
   .prompt{position:absolute; inset:0; display:grid; justify-items:center; align-content:space-between;
     text-align:center; pointer-events:none; padding:2.2em 1.5em 2.6em; opacity:1;
@@ -145,16 +145,16 @@
   /* level up */
   #levelup .box{text-align:center}
   .lvhd{font-size:.78em; letter-spacing:.44em; color:var(--gold); margin-bottom:.25em}
-  .lvsub{font-size:1.4em; margin-bottom:.75em; color:var(--foam)}
+  .lvsub{font-size:1.35em; margin-bottom:.6em; color:var(--foam)}
   .cards{display:flex; gap:1em; justify-content:center; align-items:stretch; flex-wrap:wrap}
-  .card{position:relative; display:flex; flex-direction:column; width:12em; padding:.8em .8em .75em; text-align:center;
+  .card{position:relative; display:flex; flex-direction:column; width:11.6em; padding:.7em .75em .65em; text-align:center;
     background:linear-gradient(180deg,#432e1b,#2c1d10);
     border:1px solid #6b4a26; border-top:3px solid var(--gold); border-radius:2px;
     box-shadow:0 18px 34px -18px #000; cursor:pointer;
     transition:transform .14s ease, box-shadow .14s ease, border-color .14s ease}
   .card:hover{transform:translateY(-6px); border-color:var(--gold); box-shadow:0 26px 40px -18px #000}
   .card .no{position:absolute; top:.4em; left:.55em; font-size:.66em; color:#9c7c50}
-  .card canvas{width:2.7em; height:2.7em; image-rendering:pixelated; margin:.15em auto .4em; display:block}
+  .card canvas{height:3em; width:auto; image-rendering:pixelated; margin:.15em auto .35em; display:block}
   .card .nm{font-size:1.05em; font-weight:700; color:#ffe9bd}
   .card .lv{font-size:.7em; letter-spacing:.16em; color:var(--gold); margin-top:.15em}
   .card .val{display:flex; align-items:baseline; justify-content:center; gap:.3em; flex-wrap:nowrap;
@@ -165,9 +165,9 @@
   .card .val.down b{color:#ff8b6a}
   .card .val i{font-style:normal; font-size:.78em; color:#c7ab82}
   .card .ef{font-size:.76em; color:#e2cda6; margin-top:.5em; line-height:1.5}
-  .card .fl{font-size:.7em; color:#a98f6b; margin:.45em 0 .6em; line-height:1.4}
-  .card .tr{margin:.5em 0 .6em; display:flex; flex-direction:column; gap:.28em}
-  .card .tr div{font-size:.72em; line-height:1.3}
+  .card .fl{font-size:.67em; color:#a98f6b; margin:.45em 0 .55em; line-height:1.4}
+  .card .tr{margin:.45em 0 .5em; display:flex; flex-direction:column; gap:.24em}
+  .card .tr div{font-size:.68em; line-height:1.3}
   .card .tr b{display:block; font-weight:700; letter-spacing:.08em}
   .card .tr em{font-style:normal; color:#ad967a}
   .card .tr .g b{color:#7fe0c4}
@@ -180,46 +180,33 @@
   .card.dim{opacity:.45}
   .card.max{opacity:.55}
 
-  /* 釣り座＝船の絵。艫（左）から舳先（右）へ10人が等間隔で並ぶ */
-  .racklbl{margin:.8em 0 .3em; font-size:.66em; letter-spacing:.42em; color:var(--dim)}
-  .rack{position:relative; width:56em; max-width:100%; margin:0 auto}
-  .berths{position:relative; z-index:2; display:grid; grid-template-columns:repeat(10,1fr);
-    gap:.15em; padding:0 2.8em 0 4.8em; align-items:end}
+  /* 釣り座＝ゲーム中と同じ船とと同じ乗員スプライトをそのまま描く */
+  .racklbl{margin:.45em 0 .2em; font-size:.66em; letter-spacing:.42em; color:var(--dim)}
+  .rack{position:relative; width:28em; max-width:100%; margin:0 auto; padding-top:2.9em}
+  #rackcv{display:block; width:100%; height:auto; image-rendering:pixelated; image-rendering:crisp-edges}
+  .berths{position:absolute; top:0; bottom:0; display:grid}
   .berth{position:relative; display:flex; flex-direction:column; align-items:center;
-    justify-content:flex-end; min-height:5.8em; padding:.15em .1em 0; border-radius:2px 2px 0 0;
-    transition:background .12s ease, transform .12s ease}
-  .berth .bn{font-size:.54em; color:#3f6379; line-height:1}
-  .berth .bt{font-size:.56em; line-height:1.3; text-align:center; margin-top:.2em}
+    justify-content:flex-start; padding-top:.1em; border-radius:2px;
+    transition:background .12s ease}
+  .berth .bn{font-size:.5em; color:#3f6379; line-height:1.1}
+  .berth .bv{font-size:.62em; font-weight:700; color:var(--gold); line-height:1.2;
+    font-family:"M PLUS 1 Code",ui-monospace,monospace; font-variant-numeric:tabular-nums}
+  .berth.empty .bv{color:#4b6c7f; font-weight:500}
+  .berth .bt{font-size:.5em; line-height:1.25; text-align:center}
   .berth .bt b{display:block; font-weight:700}
   .berth .bt .g{color:#7fe0c4}
   .berth .bt .b{color:#ff8b6a}
-  .berth .bv{font-size:.72em; font-weight:700; color:var(--gold); margin:.2em 0 .05em;
-    font-family:"M PLUS 1 Code",ui-monospace,monospace; font-variant-numeric:tabular-nums}
-  .berth canvas{display:block; image-rendering:pixelated; height:2.9em; width:auto; margin-bottom:-.15em}
-  .berth .bx{width:1.5em; height:2.7em; border:1px dashed #2a5871; border-radius:1px}
-  .berth.empty .bv{color:#4e6f82; font-weight:500}
   .rack.armed .berth{cursor:pointer}
-  .rack.armed .berth:hover, .berth.over{background:rgba(242,179,44,.2); transform:translateY(-3px)}
-  .rack.armed .berth.taken:hover, .berth.taken.over{background:rgba(224,51,44,.22)}
-  .hull{position:relative; z-index:1; height:2.4em; margin-top:-.4em;
-    background:linear-gradient(180deg,#e9f0f3 0 46%, #d8322a 46% 60%, #15455f 60% 86%, #0e3149 86%);
-    clip-path:polygon(1.4% 0, 94.5% 0, 100% 30%, 99% 58%, 92.5% 100%, 3.4% 100%, 0 58%, .5% 26%);
-    box-shadow:inset 0 1px 0 #7c98a8}
-  .rack:after{content:''; position:absolute; z-index:0; left:4%; right:6%; bottom:-.35em; height:.9em;
-    background:radial-gradient(50% 50% at 50% 50%, rgba(4,32,47,.55), rgba(4,32,47,0) 70%)}
-  .cabin{position:absolute; z-index:3; left:1.2em; bottom:2.3em; width:3.3em; height:3em;
-    background:#eef4f6; border-top:.22em solid #d8322a}
-  .cabin i{position:absolute; top:1em; left:.5em; width:.62em; height:.85em; background:#123b52;
-    box-shadow:1.25em 0 0 #123b52}
-  .mast{position:absolute; z-index:3; left:4.3em; bottom:5.2em; width:.18em; height:2.1em; background:#8a6a3f}
-  .mast:before{content:''; position:absolute; left:.18em; top:0; width:1.1em; height:.5em; background:#d8322a}
-  .mast:after{content:''; position:absolute; left:.18em; top:.5em; width:.9em; height:.38em; background:#f2b32c}
-  .rackhint{margin-top:.6em; min-height:1.4em; font-size:.78em; color:var(--mist);
+  .rack.armed .berth:hover, .berth.over{background:rgba(242,179,44,.22);
+    box-shadow:inset 0 0 0 1px rgba(242,179,44,.8)}
+  .rack.armed .berth.taken:hover, .berth.taken.over{background:rgba(224,51,44,.26);
+    box-shadow:inset 0 0 0 1px rgba(255,139,106,.85)}
+  .rackhint{margin-top:.5em; min-height:1.4em; font-size:.78em; color:var(--mist);
     font-family:"M PLUS 1 Code",ui-monospace,monospace; font-variant-numeric:tabular-nums}
   .rackhint em{font-style:normal; color:var(--gold); font-weight:700}
   .rackhint em.down{color:#ff8b6a}
   .rackhint i{font-style:normal; color:#ff8b6a; margin-left:.8em}
-  .skip{margin-top:.25em; padding:.3em 1.5em; font-size:.74em; letter-spacing:.2em;
+  .skip{margin-top:.2em; padding:.3em 1.5em; font-size:.74em; letter-spacing:.2em;
     color:var(--dim); background:rgba(10,31,46,.6); border:1px solid var(--line); border-radius:2px;
     transition:color .12s, border-color .12s}
   .skip:hover{color:var(--foam); border-color:var(--line2)}
@@ -321,9 +308,8 @@
         <div class="cards" id="cards"></div>
         <div class="racklbl" id="lblRack">釣り座</div>
         <div class="rack" id="rack">
-          <div class="cabin"><i></i></div><div class="mast"></div>
+          <canvas id="rackcv"></canvas>
           <div class="berths" id="berths"></div>
-          <div class="hull"></div>
         </div>
         <div class="rackhint" id="rackhint"></div>
         <button class="skip" id="skipBtn">採用しない</button>
@@ -545,9 +531,9 @@ function buildFishAtlas(){
 }
 
 /* ---------------- 漁船（Lv1〜Lv5・独立生成） ---------------- */
-const HULL_LEN=62;
+const HULL_LEN=100;      // 釣り座10人ぶんを一列に並べる長さ
 const SEAT_GAP=8;
-const CAP=10;                       // 定員。釣り座 5 × 2列
+const CAP=10;            // 定員。釣り座は一列
 let boat=null;
 
 function buildBoat(){
@@ -578,14 +564,14 @@ function buildBoat(){
     px(g,x,top[x],1,1,'#7c98a8');               // 船べりのハイライト
     px(g,x,bot[x]-1,1,1,'#08202f');
   }
-  for(let x=x0+16;x<x1-8;x+=13){ px(g,x,railY+9,3,3,'#0b2b3d'); px(g,x+1,railY+9,1,1,'#123b52'); }
+  for(let x=x0+20;x<x1-8;x+=13){ px(g,x,railY+9,3,3,'#0b2b3d'); px(g,x+1,railY+9,1,1,'#123b52'); }
   px(g,x1-14,railY+2,10,2,'#c2ced5');
   // 操舵室（船尾）
-  const wh=11, hh=12, wx=x0+3;
+  const wh=10, hh=12, wx=x0+2;
   px(g,wx,railY-hh,wh,hh,'#eef4f6');
   px(g,wx,railY-hh,wh,1,'#b9c7cf');
   px(g,wx,railY-1,wh,1,'#9fb0ba');
-  for(let i=0;i<2;i++) px(g,wx+2+i*4,railY-hh+3,2,3,'#123b52');
+  for(let i=0;i<2;i++) px(g,wx+1+i*4,railY-hh+3,2,3,'#123b52');
   px(g,wx-1,railY-hh-1,wh+2,1,'#d8322a');       // 屋根の朱線
   // マストと大漁旗
   const mx=wx+wh-2, my=railY-hh-1;
@@ -595,7 +581,7 @@ function buildBoat(){
   px(g,mx-4,my-6,3,2,'#cfd9de'); px(g,mx-3,my-4,1,3,'#8a6a3f');
   // 釣り座
   const seatX=[];
-  for(let x=x0+15; x<=x1-14; x+=SEAT_GAP) seatX.push(x);
+  for(let x=x0+17; x<=x1-14; x+=SEAT_GAP) seatX.push(x);
   return {cv:c,W,H,railY,waterY,seatX,len};
 }
 
@@ -613,13 +599,13 @@ const JPAL={
 };
 const JOB_I={fisher:0,engineer:1,radar:2,chum:3};
 const JOB_ID=['fisher','engineer','radar','chum'];
-const fishers=[];   // [job][row][pose] -> [palette]
+const fishers=[];   // [job][pose] -> [palette]
 
-function buildFisher(pi,row,pose,ji){
+function buildFisher(pi,pose,ji){
   const W=24,H=44, c=mkc(W,H), g=gx(c);   // 頭上の目印のぶん天地に余白を持たせる
   const p=FPAL[pi], job=JOB_ID[ji], jp=ji?JPAL[job]:null;
   const shirt=jp?jp.shirt:p.shirt, shirt2=jp?jp.shirt2:p.shirt2;
-  const by = row===0 ? 27 : 36;          // 腰の切断面（near/far で位置を変える）
+  const by = 27;                         // 腰の切断面。ここが船べりの高さになる
   const hy = by-15;                      // 頭の上端
   const cx = 7;
   // 頭
@@ -643,12 +629,8 @@ function buildFisher(pi,row,pose,ji){
   if(ji) px(g,cx-3,by-6,7,1,'#00000022');
   // 腕と持ち物
   let ax0,ay0,tx,ty;
-  if(pose===0){
-    if(row===0){ ax0=cx+4; ay0=by-6; tx=21; ty=by+13; }
-    else       { ax0=cx+4; ay0=by-7; tx=21; ty=by-19; }
-  }else{
-    ax0=cx+5; ay0=by-11; tx=22; ty=by-(row===0?16:24);
-  }
+  if(pose===0){ ax0=cx+4; ay0=by-6;  tx=21; ty=by+13; }
+  else        { ax0=cx+5; ay0=by-11; tx=22; ty=by-16; }
   if(ji===0){
     px(g,cx+3,ay0-1,3,3,p.skin);                     // 手
     px(g,cx+1,ay0-2,3,4,shirt);                      // 腕
@@ -656,11 +638,7 @@ function buildFisher(pi,row,pose,ji){
     line(g,ax0,ay0,tx,ty,'#caa268');                 // 一本釣り竿（リールなし）
     line(g,ax0+1,ay0,tx,ty-1,'#8f6f42');
     const lx=tx, ly=ty;
-    if(pose===0){                                    // 糸の出だしだけ。続きは水中側で動的に描く
-      const dy = row===0? 2 : -2;
-      line(g,lx,ly,lx,ly+dy,'#cfdde6');
-    }
-    if(row===1){ g.globalCompositeOperation='source-atop'; px(g,0,0,W,H,'rgba(4,32,52,.34)'); g.globalCompositeOperation='source-over'; }
+    if(pose===0) line(g,lx,ly,lx,ly+2,'#cfdde6');    // 糸の出だしだけ。続きは水中側で動的に描く
     return {cv:c, ax:cx, ay:by, tip:{x:lx-cx, y:ly-by}};
   }
   const hy2 = by-7-(pose?2:0), o = pose?1:0;
@@ -678,7 +656,6 @@ function buildFisher(pi,row,pose,ji){
     px(g,cx-1,hy-6+o,1,1,'#a9c4d2'); px(g,cx+2,hy-9-o,1,1,'#eaf3f4');
     px(g,cx-2,hy-3-o,1,1,'#a9c4d2');
   }
-  if(row===1){ g.globalCompositeOperation='source-atop'; px(g,0,0,W,H,'rgba(4,32,52,.34)'); g.globalCompositeOperation='source-over'; }
   return {cv:c, ax:cx, ay:by, tip:{x:tx-cx, y:ty-by}};
 }
 
@@ -800,7 +777,7 @@ function makeMember(job,q){
   q=q||0; job=job||rollJob();
   return {job, ji:JOB_I[job], pal:rint(0,2), w:+rnd(.70+.14*q, 1.30+.24*q).toFixed(2),
     tr:rollTraits(job,q), ph:rnd(0,TAU),
-    cd:rnd(0,.7), pose:0, pt:0, row:0, si:0, lx:0, ly:0, wx:0, tipx:0, tipy:0,
+    cd:rnd(0,.7), pose:0, pt:0, si:0, slot:0, lx:0, ly:0, wx:0, tipx:0, tipy:0,
     stk:0, stkT:0, lineLen:rint(8,13), lineSlant:rnd(-2.4,2.4)};
 }
 function has(m,id){ return m.tr.indexOf(id)>=0; }
@@ -844,8 +821,7 @@ function powerOf(list,nom,L){
   return p*buffOf(list);
 }
 function cnt(list,job){ let n=0; for(const m of list) if(m.job===job) n++; return n; }
-/* 釣り座は艫から舳先へ一列に数える。実際の甲板では左右の舷に交互に立つ */
-function seatOf(k){ return {row:k&1, si:k>>1}; }
+
 function recalc(){
   S.lv=lvOf(S.crewList,false);
   S.buff=buffOf(S.crewList);
@@ -859,7 +835,7 @@ const stat = {
   lureR:(L)=>{L=L||S.lv; return L.chum<=0?0:150+70*L.chum;},
   lureF:()=>S.lv.chum*3.4,
   power:()=>powerOf(S.crewList,false,S.lv),
-  rx:()=>HULL_LEN/2+TUNE.rx,
+  rx:()=>TUNE.rx,          // 船の長さとは切り離す。従来と同じ 55x42
   ry:()=>TUNE.ry
 };
 
@@ -891,14 +867,13 @@ function initAssets(){
   buildFishAtlas(); buildSea(); buildChest();
   boat=buildBoat();
   for(let ji=0;ji<4;ji++){ fishers[ji]=[[],[]];
-    for(let r=0;r<2;r++){ fishers[ji][r]=[[],[]];
-      for(let p=0;p<2;p++) for(let i=0;i<3;i++) fishers[ji][r][p][i]=buildFisher(i,r,p,ji); } }
+    for(let p=0;p<2;p++) for(let i=0;i<3;i++) fishers[ji][p][i]=buildFisher(i,p,ji); }
   ['crew'].concat(JOBS).forEach(id=>ICONS[id]=buildIcon(id));
 }
 
 /* ================= 魚群 ================= */
 /* 表に出さない副効果の係数（1人あたり） */
-const TUNE={ lureSchoolSize:0.12, sonarChestRate:0.15, dens:5.0, rCap:140, rx:24, ry:42 };
+const TUNE={ lureSchoolSize:0.12, sonarChestRate:0.15, dens:5.0, rCap:140, rx:55, ry:42 };
 const schoolRadius=n=>Math.min(TUNE.rCap,Math.sqrt(n)*TUNE.dens);   // 上限で頭打ちにして、大群ほど密にする
 const PSTEP=4, PN=104;            // 先頭の軌跡を4px刻みで416pxぶん保持する
 /* 表に出さない副効果の係数（1レベルあたり） */
@@ -1022,10 +997,10 @@ function layoutCrew(){
   S.crewList.length=0;
   for(let k=0;k<CAP;k++){
     const m=S.roster[k]; if(!m) continue;
-    const st=seatOf(k); m.row=st.row; m.si=st.si; m.slot=k;
+    m.si=k; m.slot=k;
     S.crewList.push(m);
   }
-  // 道具が隣の体に隠れないよう、同じ列では支援職を後に描く
+  // 道具が隣の体に隠れないよう、支援職を後に描く
   S.drawOrder=S.crewList.slice().sort((a,b)=> (a.ji?1:0)-(b.ji?1:0) || a.si-b.si );
   recalc();
   placeCrew();
@@ -1033,9 +1008,9 @@ function layoutCrew(){
 function placeCrew(){
   const f=S.boat.face;
   for(const fm of S.crewList){
-    fm.lx=boat.seatX[fm.si]-boat.W/2 + (fm.row===1?4:0);
-    fm.ly=(fm.row===0?boat.railY:boat.railY+2)-boat.waterY;
-    const sp=fishers[fm.ji][fm.row][fm.pose][fm.pal];
+    fm.lx=boat.seatX[fm.si]-boat.W/2;
+    fm.ly=boat.railY-boat.waterY;
+    const sp=fishers[fm.ji][fm.pose][fm.pal];
     fm.wx=f<0?-fm.lx:fm.lx;
     fm.tipx=f<0?-(fm.lx+sp.tip.x):(fm.lx+sp.tip.x);
     fm.tipy=fm.ly+sp.tip.y;
@@ -1046,14 +1021,14 @@ function placeCrew(){
 function updateFishing(dt){
   const B=S.boat, rx=stat.rx(), ry=stat.ry();
   const lim=S.hasReach?1.96:1, R=Math.sqrt(lim);       // 長竿持ちがいる時だけ広く拾う
-  const up=[], dn=[];
+  const cand=[];
   for(const s of S.schools){
     if(Math.abs(s.cx-B.x)>rx*R+s.rx*s.k+14 || Math.abs(s.cy-B.y)>ry*R+s.rx*s.k+14) continue;
     const fs=s.fish;
     for(let i=0;i<fs.length;i++){
       const f=fs[i]; if(!f.alive) continue;
       const ex=(f.wx-B.x)/rx, ey=(f.wy-B.y)/ry, e=ex*ex+ey*ey;
-      if(e<=lim) (f.wy<B.y?up:dn).push({f,s,e});
+      if(e<=lim) cand.push({f,s,e});
     }
   }
   for(const fm of S.crewList){
@@ -1064,19 +1039,15 @@ function updateFishing(dt){
     if(fm.cd>0) continue;
     if(has(fm,'late') && S.t<25){ fm.cd=.4; continue; }   // 寝坊
     const my=has(fm,'reach')?1.96:1;
-    const own=fm.row===1?up:dn, other=fm.row===1?dn:up;
     const fx=B.x+fm.wx;
-    const take=()=>{                       // 自分の舷を優先して一番近い魚を1匹取る
-      for(const list of [own,other]){
-        let bi=-1, bd=1e9;
-        for(let i=0;i<list.length;i++){
-          const o=list[i]; if(o.e>my) continue;
-          const d=Math.abs(o.f.wx-fx)+Math.abs(o.f.wy-B.y)*0.55;
-          if(d<bd){ bd=d; bi=i; }
-        }
-        if(bi>=0) return list.splice(bi,1)[0];
+    const take=()=>{                       // 竿の下から一番近い魚を1匹取る
+      let bi=-1, bd=1e9;
+      for(let i=0;i<cand.length;i++){
+        const o=cand[i]; if(o.e>my) continue;
+        const d=Math.abs(o.f.wx-fx)+Math.abs(o.f.wy-B.y)*0.55;
+        if(d<bd){ bd=d; bi=i; }
       }
-      return null;
+      return bi>=0 ? cand.splice(bi,1)[0] : null;
     };
     const o=take();
     if(!o){ fm.cd=rnd(.03,.12); fm.stk=0; continue; }
@@ -1169,7 +1140,7 @@ function updateBoat(dt){
   while(n-->0 && rods.length){
     const fm=pick(rods);
     S.spray.push({x:B.x+fm.wx+rnd(-2,2), y:B.y+fm.ly+1,
-      vx:rnd(-6,6), vy:(fm.row===0?1:-1)*rnd(16,30), t:0, life:rnd(.3,.55)});
+      vx:rnd(-6,6), vy:rnd(16,30), t:0, life:rnd(.3,.55)});
   }
 }
 
@@ -1273,7 +1244,7 @@ function drawRings(){
   ctx.globalAlpha=1;
 }
 function drawFisher(fm){
-  const sp=fishers[fm.ji][fm.row][fm.pose][fm.pal];
+  const sp=fishers[fm.ji][fm.pose][fm.pal];
   ctx.drawImage(sp.cv, Math.round(fm.lx-sp.ax), Math.round(fm.ly-sp.ay));
 }
 function drawBoat(){
@@ -1283,9 +1254,8 @@ function drawBoat(){
   ctx.beginPath(); ctx.ellipse(sx,sy+5,b.len/2+7,7,0,0,TAU); ctx.fill();
   ctx.globalAlpha=1;
   ctx.save(); ctx.translate(sx,sy); if(B.face<0) ctx.scale(-1,1);
-  for(const fm of S.drawOrder) if(fm.row===1) drawFisher(fm);
   ctx.drawImage(b.cv, -Math.round(b.W/2), -b.waterY);
-  for(const fm of S.drawOrder) if(fm.row===0) drawFisher(fm);
+  for(const fm of S.drawOrder) drawFisher(fm);
   ctx.restore();
   const spd=Math.hypot(B.vx,B.vy);
   if(spd>6){                                   // 船首の白波
@@ -1313,7 +1283,7 @@ function drawLines(){
   for(const fm of S.crewList){
     if(fm.job!=='fisher' || fm.pose===1) continue;
     const x0=Math.round(VW/2+fm.tipx), y0=Math.round(VH/2+fm.tipy)+bobPx;
-    const dir=fm.row===0?1:-1, len=fm.lineLen, sl=fm.lineSlant;
+    const dir=1, len=fm.lineLen, sl=fm.lineSlant;
     let lx=x0, ly=y0;
     for(let i=1;i<=len;i++){
       ly=y0+dir*i; lx=x0+Math.round(sl*i/len);
@@ -1528,6 +1498,7 @@ function updateHUD(){
 const cardsEl=document.getElementById('cards');
 const rackEl=document.getElementById('rack');
 const berthsEl=document.getElementById('berths');
+const rackCv=document.getElementById('rackcv');
 const skipBtn=document.getElementById('skipBtn');
 const hintEl=document.getElementById('rackhint');
 const scrLevel=document.getElementById('levelup');
@@ -1548,8 +1519,7 @@ function showCards(){
   S.choices.forEach((m,idx)=>{
     const d=document.createElement('div'); d.className='card'; d.tabIndex=0;
     const no=document.createElement('div'); no.className='no'; no.textContent=idx+1;
-    const c=document.createElement('canvas'); c.width=16;c.height=16;
-    c.getContext('2d').drawImage(ICONS[m.job],0,0);
+    const c=copyCv(crewCut(m));
     const nm=document.createElement('div'); nm.className='nm'; nm.textContent=t('job.'+m.job+'.name');
     const val=document.createElement('div'); val.className='val';
     val.innerHTML='<b>'+ownValue(m).toFixed(2)+'</b><i>'+t(m.job==='fisher'?'unit.rate':'unit.head')+'</i>';
@@ -1571,34 +1541,62 @@ function showCards(){
   const first=cardsEl.firstChild; if(first) first.focus({preventScroll:true});
 }
 const cutCache={};
-function crewCut(m){                     // 甲板に立っている姿だけを切り出す（竿は腰から下を捨てる）
+function crewCut(m){                     // 竿の水中側を落とした立ち姿。カードに使う
   const key=m.ji+'/'+m.pal;
   if(cutCache[key]) return cutCache[key];
-  const sp=fishers[m.ji][0][0][m.pal];
-  const c=mkc(sp.cv.width, sp.ay+4), g=gx(c);
+  const sp=fishers[m.ji][0][m.pal];
+  const c=mkc(sp.cv.width, sp.ay+5), g=gx(c);
   g.drawImage(sp.cv,0,0);
   return (cutCache[key]=c);
 }
+function copyCv(src){
+  const c=mkc(src.width,src.height); gx(c).drawImage(src,0,0); return c;
+}
+/* ゲーム中の drawBoat と同じ手順で、船と乗員をそのまま1枚に起こす */
+const RACK_TOP=4, RACK_H=42;
+function drawRackBoat(){
+  const b=boat;
+  rackCv.width=b.W; rackCv.height=RACK_H;
+  const g=gx(rackCv);
+  g.clearRect(0,0,b.W,RACK_H);
+  g.globalAlpha=.32; g.fillStyle='#04202f';
+  g.beginPath(); g.ellipse(b.W/2, RACK_TOP+b.waterY+5, b.len/2+7, 7, 0, 0, TAU); g.fill();
+  g.globalAlpha=1;
+  g.drawImage(b.cv, 0, RACK_TOP);
+  const rail=RACK_TOP+b.railY;
+  const ord=[];
+  for(let k=0;k<CAP;k++) if(S.roster[k]) ord.push(k);
+  ord.sort((a,c)=>(S.roster[a].ji?1:0)-(S.roster[c].ji?1:0) || a-c);
+  for(const k of ord){
+    const m=S.roster[k], sp=fishers[m.ji][0][m.pal];
+    const x=Math.round(b.seatX[k]-sp.ax), y=Math.round(rail-sp.ay);
+    g.drawImage(sp.cv, x, y);
+    if(m.job==='fisher'){                       // 糸を水面まで垂らす
+      const lx=x+sp.ax+sp.tip.x, ly=y+sp.ay+sp.tip.y;
+      g.fillStyle='rgba(216,232,240,.55)';
+      for(let i=1;i<=5;i++) g.fillRect(lx, ly+i, 1, 1);
+    }
+  }
+}
 function buildRack(){
+  drawRackBoat();
+  const b=boat, step=(b.seatX[1]-b.seatX[0])/b.W*100;
+  berthsEl.style.left=(b.seatX[0]/b.W*100-step/2)+'%';
+  berthsEl.style.width=(step*CAP)+'%';
+  berthsEl.style.gridTemplateColumns='repeat('+CAP+',1fr)';
   berthsEl.innerHTML='';
   for(let k=0;k<CAP;k++){
     const m=S.roster[k];
     const d=document.createElement('div');
     d.className='berth'+(m?' taken':' empty'); d.dataset.k=k;
     const bn=document.createElement('div'); bn.className='bn'; bn.textContent=k+1;
-    d.append(bn);
-    if(m){
-      if(m.tr.length){
-        const tr=document.createElement('div'); tr.className='bt';
-        tr.innerHTML=m.tr.map(id=>traitRow(id,true)).join('');
-        d.append(tr);
-      }
-      const v=document.createElement('div'); v.className='bv'; v.textContent=ownValue(m).toFixed(2);
-      const c=crewCut(m).cloneNode(false);
-      c.getContext('2d').drawImage(crewCut(m),0,0);
-      d.append(v,c);
-    }else{
-      const x=document.createElement('div'); x.className='bx'; d.append(x);
+    const v=document.createElement('div'); v.className='bv';
+    v.textContent = m ? ownValue(m).toFixed(2) : '\u2013';
+    d.append(bn,v);
+    if(m && m.tr.length){
+      const tr=document.createElement('div'); tr.className='bt';
+      tr.innerHTML=m.tr.map(id=>traitRow(id,true)).join('');
+      d.append(tr);
     }
     d.addEventListener('pointerenter',()=>{ if(S.sel>=0) setHint(k); });
     d.addEventListener('pointerleave',()=>{ if(S.sel>=0) setHint(-1); });
