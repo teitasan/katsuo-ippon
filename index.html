@@ -165,8 +165,6 @@
   .card .val b{font-size:1.6em; line-height:1; color:var(--gold); font-weight:700}
   .card .val i{font-style:normal; font-size:.78em; color:#c7ab82}
   .card .ef{font-size:.76em; color:#e2cda6; margin-top:.5em; line-height:1.5}
-  .card .pw{font-size:.76em; color:var(--gold); margin-top:.3em; line-height:1.5;
-    font-family:"M PLUS 1 Code",ui-monospace,monospace; font-variant-numeric:tabular-nums}
   .card .fl{font-size:.7em; color:#a98f6b; margin-top:.5em; line-height:1.5}
   .card.max{opacity:.55}
 
@@ -306,7 +304,7 @@ ja:{
  'up.lure.name':'集魚装置','up.lure.short':'集魚','up.lure.fl':'魚群が船のほうへ寄ってくるようになる。',
  'pick.lvCrew':'漁師 +3人','pick.lv':'Lv{a} → Lv{b}',
  'pick.efCrew':'うち待機 {a}人　釣り座 {b}人','pick.efBerth':'釣り座 {b}人',
- 'pick.efHull':'{a}t → {b}t船','pick.power':'漁獲力 {a} → {b} 本/秒',
+ 'pick.efHull':'{a}t → {b}t船',
  'unit.crew':'人','unit.rate':'本/秒','unit.knot':'ノット','unit.km':'km','unit.m':'m','unit.none':'なし',
  'chest.1':'宝箱','chest.3':'当たり','chest.5':'大当たり',
  'chest.item':'{name} 強化','chest.itemN':'{name} ×{n}',
@@ -333,7 +331,7 @@ en:{
  'up.lure.name':'Chum Rig','up.lure.short':'Chum','up.lure.fl':'Schools drift toward the boat.',
  'pick.lvCrew':'+3 crew','pick.lv':'Lv{a} → Lv{b}',
  'pick.efCrew':'{a} standing by · {b} berths','pick.efBerth':'{b} berths',
- 'pick.efHull':'{a}t → {b}t boat','pick.power':'RATE {a} → {b} fish/s',
+ 'pick.efHull':'{a}t → {b}t boat',
  'unit.crew':'','unit.rate':'fish/s','unit.knot':'kn','unit.km':'km','unit.m':'m','unit.none':'none',
  'chest.1':'CHEST','chest.3':'GOOD HAUL','chest.5':'JACKPOT',
  'chest.item':'{name} up','chest.itemN':'{name} ×{n}',
@@ -1345,12 +1343,6 @@ function showCards(){
       ef=(r0?fmtDist(r0):'なし')+' → '+fmtDist(stat.lureR(nu)*M_PER_PX);
     }
     if(ef){ const e=document.createElement('div'); e.className='ef'; e.textContent=ef; d.append(e); }
-    const p0=stat.power(S.up), p1=stat.power(nu);
-    if(p1>p0+0.05){
-      const pw=document.createElement('div'); pw.className='pw';
-      pw.textContent=t('pick.power',{a:p0.toFixed(1),b:p1.toFixed(1)});
-      d.append(pw);
-    }
     const fl=document.createElement('div'); fl.className='fl'; fl.textContent=t('up.'+u.id+'.fl'); d.append(fl);
     d.addEventListener('click',()=>choose(idx));
     d.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){e.preventDefault();choose(idx);} });
