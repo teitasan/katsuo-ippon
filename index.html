@@ -107,15 +107,6 @@
   .sonar{position:absolute; right:1em; bottom:1em; width:11em; text-align:right}
   .sonar canvas{width:100%; aspect-ratio:1; display:block; border-radius:50%;
     box-shadow:0 0 0 1px var(--line), 0 0 30px -8px rgba(63,191,160,.5), inset 0 0 20px rgba(0,0,0,.6)}
-  .power{font-size:.8em; color:var(--mist); margin-bottom:.15em;
-    font-family:"M PLUS 1 Code",ui-monospace,monospace; font-variant-numeric:tabular-nums}
-  .power b{font-size:1.5em; font-weight:700; color:var(--gold); margin:0 .15em}
-  .power span{font-size:.85em; color:var(--dim)}
-  .crew{display:flex; justify-content:flex-end; align-items:baseline; gap:.6em; margin-bottom:.4em;
-    font-size:.78em; color:var(--mist)}
-  .crew .n{color:var(--foam); font-weight:700}
-  .crew .w{color:var(--gold)}
-  .range{margin-top:.35em; font-size:.66em; letter-spacing:.18em; color:var(--dim)}
 
   .toast{position:absolute; left:50%; top:38%; transform:translate(-50%,-50%);
     display:flex; flex-direction:column; align-items:center; gap:.3em; text-align:center;
@@ -238,19 +229,14 @@
       </div>
 
       <div class="lvbar">
-        <div class="row"><span id="lvlabel">ツギノキョウカ</span><span class="num" id="lvnum">0 / 9</span></div>
+        <div class="row"><span id="lvlabel">NEXT</span><span class="num" id="lvnum">0 / 9</span></div>
         <div class="track"><div class="fill" id="lvfill"></div></div>
       </div>
 
       <div class="stats" id="stats"></div>
 
       <div class="sonar">
-        <div class="power">漁獲力 <b class="num" id="power">2.5</b><span>本/秒</span></div>
-        <div class="crew">
-          <span class="w" id="wait" hidden>待機 <span class="num" id="waitn">0</span>人</span>
-        </div>
         <canvas id="radar" width="340" height="340"></canvas>
-        <div class="range">タンチ <span class="num" id="rangev">0.50</span> km</div>
       </div>
 
       <div class="toast" id="toast"><div class="hd">宝箱</div><div id="toastitems"></div></div>
@@ -261,14 +247,7 @@
 
     <div class="scrim on" id="title">
       <div class="box">
-        <div class="kanji">土佐沖・鰹一本釣り</div>
         <h1 class="disp">カツオ<em>一本釣り</em></h1>
-        <p class="lede">マウスを動かした方向へ船が走る。クリックはいらない。魚群に船べりを寄せれば、漁師が勝手に竿を振る。3分でどれだけ獲れるか。</p>
-        <div class="keys">
-          <div><b>マウス</b>進む向きだけを決める</div>
-          <div><b>自動</b>釣りは漁師にまかせる</div>
-          <div><b>180秒</b>釣った本数がスコア</div>
-        </div>
         <button class="go disp" id="start">出港</button>
         <div class="best" id="titlebest"></div>
       </div>
@@ -574,22 +553,22 @@ function buildSea(){
 /* ---------------- 強化定義 ---------------- */
 const UPG=[
   {id:'crew', nm:'漁師', sh:'漁師', max:99,
-   ef:()=>'漁師 +3人', fl:'釣り座が空いていれば即乗船。満員なら待機に回る。',
+   fl:'漁師が3人増える。釣り座が空いていなければ待機に回る。',
    lv:()=>S.up.crew, apply:()=>{S.up.crew+=3;}},
   {id:'hull', nm:'船体', sh:'船体', max:5,
-   ef:()=>'船が伸びる／釣り座 +',  fl:'待機している漁師がその場で乗り込む。',
+   fl:'船が大きくなり、釣り座と漁獲範囲が広がる。',
    lv:()=>S.up.hull, apply:()=>{S.up.hull=Math.min(5,S.up.hull+1);}},
-  {id:'rate', nm:'釣り速度', sh:'釣り', max:10,
-   ef:()=>'一人あたり +18%', fl:'竿を振り戻す間合いが詰まる。',
+  {id:'rate', nm:'釣具', sh:'釣具', max:10,
+   fl:'漁師ひとりあたりの釣り上げが速くなる。',
    lv:()=>S.up.rate, apply:()=>{S.up.rate++;}},
   {id:'engine', nm:'機関', sh:'機関', max:10,
-   ef:()=>'航行速度 +12%', fl:'次の群れまでが近くなる。',
+   fl:'船の移動速度が上がる。',
    lv:()=>S.up.engine, apply:()=>{S.up.engine++;}},
   {id:'sonar', nm:'魚群探知機', sh:'魚探', max:6,
-   ef:()=>'探知レンジ +32%', fl:'画面の外の反応が読めるようになる。',
+   fl:'魚探に映る範囲が広がる。',
    lv:()=>S.up.sonar, apply:()=>{S.up.sonar++;}},
-  {id:'lure', nm:'集魚', sh:'集魚', max:8,
-   ef:()=>'撒き餌と散水を強化', fl:'魚群のほうから船べりへ寄ってくる。',
+  {id:'lure', nm:'集魚装置', sh:'集魚', max:8,
+   fl:'魚群が船のほうへ寄ってくるようになる。',
    lv:()=>S.up.lure, apply:()=>{S.up.lure++;}}
 ];
 const UPG_BY={}; UPG.forEach(u=>UPG_BY[u.id]=u);
@@ -1230,10 +1209,7 @@ const hud=document.getElementById('hud');
 const elTime=document.getElementById('time'), elClock=document.getElementById('clock');
 const elScore=document.getElementById('score'), elFill=document.getElementById('lvfill');
 const elLvNum=document.getElementById('lvnum'), elStats=document.getElementById('stats');
-const elWait=document.getElementById('wait');
-const elWaitN=document.getElementById('waitn'), elRange=document.getElementById('rangev');
 const toastEl=document.getElementById('toast'), toastItems=document.getElementById('toastitems');
-const elPower=document.getElementById('power');
 const chipEls={};
 function buildChips(){
   UPG.forEach(u=>{
@@ -1267,11 +1243,6 @@ function updateHUD(){
   setTxt(elScore, S.score.toLocaleString('en-US'));
   setTxt(elLvNum, S.prog+' / '+S.need);
   elFill.style.width=clamp(S.prog/S.need*100,0,100)+'%';
-  const wait=Math.max(0,S.up.crew-S.seats);
-  elWait.hidden = wait<=0;
-  setTxt(elWaitN, String(wait));
-  setTxt(elRange, (stat.sonar()*M_PER_PX/1000).toFixed(2));
-  setTxt(elPower, stat.power().toFixed(1));
   UPG.forEach(u=>{
     const c=chipEls[u.id]; if(!c) return;
     const lv=u.lv(), on = u.id==='crew' ? true : (u.id==='hull'||u.id==='sonar' ? lv>1 : lv>0);
