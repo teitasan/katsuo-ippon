@@ -121,8 +121,15 @@
     -webkit-backdrop-filter:blur(3px); backdrop-filter:blur(3px); pointer-events:auto}
   .scrim.on{display:grid}
 
-  #title{background:radial-gradient(120% 90% at 50% 42%, rgba(4,26,42,.62), rgba(2,12,20,.88))}
-  #title .box{text-align:center; max-width:34em}
+  .prompt{position:absolute; inset:0; display:grid; justify-items:center; align-content:space-between;
+    text-align:center; pointer-events:none; padding:2.2em 1.5em 2.6em; opacity:1;
+    transition:opacity .45s ease;
+    background:linear-gradient(180deg, rgba(3,18,29,.72) 0%, rgba(3,18,29,0) 38%, rgba(3,18,29,0) 62%, rgba(3,18,29,.66) 100%)}
+  .prompt.gone{opacity:0}
+  .tap{margin:0; font-size:.9em; letter-spacing:.24em; color:var(--mist);
+    animation:breathe 2.4s ease-in-out infinite}
+  @keyframes breathe{0%,100%{opacity:.55} 50%{opacity:1}}
+  @media (prefers-reduced-motion:reduce){ .tap{animation:none; opacity:.85} }
   .kanji{font-size:.8em; letter-spacing:.7em; color:var(--gold); margin-bottom:.6em}
   h1{margin:0; font-size:3.4em; line-height:1.1; text-wrap:balance;
     color:var(--foam); text-shadow:0 .06em 0 #08202f, 0 .5em 1.4em rgba(0,0,0,.6)}
@@ -141,7 +148,7 @@
   .go:hover{transform:translateY(-2px); box-shadow:0 16px 30px -12px rgba(242,179,44,.9)}
   .go:active{transform:translateY(0)}
   :focus-visible{outline:2px solid var(--gold); outline-offset:3px}
-  .best{margin-top:1.2em; font-size:.78em; letter-spacing:.18em; color:var(--dim)}
+  .best{margin-top:.7em; font-size:.78em; letter-spacing:.18em; color:var(--dim)}
 
   /* level up */
   #levelup .box{text-align:center}
@@ -245,11 +252,13 @@
     <button class="mute" id="mute" title="音">♪</button>
     <div id="perfwrap"><div id="perf" hidden></div></div>
 
-    <div class="scrim on" id="title">
-      <div class="box">
+    <div class="prompt" id="prompt">
+      <div class="pTop">
         <h1 class="disp"><span id="h1a">カツオ</span><em id="h1b">一本釣り</em></h1>
         <div class="tsub" id="h1sub"></div>
-        <button class="go disp" id="start">出港</button>
+      </div>
+      <div class="pBottom">
+        <p class="tap" id="tapHint">動かして出港</p>
         <div class="best" id="titlebest"></div>
       </div>
     </div>
@@ -293,7 +302,7 @@ const GAME_TIME = 180;
 const STR={
 ja:{
  'title.h1a':'カツオ','title.h1b':'一本釣り','title.sub':'',
- 'title.start':'出港','title.best':'自己ベスト {n}本',
+ 'title.tap':'動かして出港','title.best':'自己ベスト {n}本',
  'hud.time':'ノコリ','hud.catch':'ギョカク','hud.catchUnit':'本','hud.next':'NEXT',
  'pick.eyebrow':'タイリョウ','pick.head':'どれを積む？',
  'up.crew.name':'漁師','up.crew.short':'漁師','up.crew.fl':'漁師が3人増える。釣り座が空いていなければ待機に回る。',
@@ -320,7 +329,7 @@ ja:{
 },
 en:{
  'title.h1a':'FISH','title.h1b':'ON!','title.sub':'~Pole & Line',
- 'title.start':'CAST OFF','title.best':'BEST {n}',
+ 'title.tap':'Move to cast off','title.best':'BEST {n}',
  'hud.time':'TIME','hud.catch':'CATCH','hud.catchUnit':'','hud.next':'NEXT',
  'pick.eyebrow':'BIG CATCH','pick.head':'What comes aboard?',
  'up.crew.name':'Crew','up.crew.short':'Crew','up.crew.fl':'Three more hands. They wait ashore if no berth is free.',
@@ -636,7 +645,7 @@ const ICONS={};
 
 /* ---------------- 状態 ---------------- */
 const S={
-  mode:'title', t:0, score:0, best:0, level:1, need:9, prog:0,
+  mode:'play', started:false, t:0, score:0, best:0, level:1, need:9, prog:0,
   boat:{x:0,y:0,vx:0,vy:0,hd:0,sp:0,face:1,bob:0},
   stick:{id:-1, on:false, ax:0, ay:0, tx:0, ty:0, f:0},
   dir:{x:0,y:0}, aim:{x:0,y:0},
@@ -745,7 +754,7 @@ function manageWorld(dt){
     S.schools.push(makeSchool(B.x+Math.cos(a)*d, B.y+Math.sin(a)*d, n));
     S.totalFish+=n;
   }
-  if(S.mode!=='play') return;
+  if(S.mode!=='play' || !S.started) return;
   S.chestT-=dt;
   if(S.chestT<=0){
     const sn=S.up.sonar;
@@ -932,13 +941,9 @@ function openChest(){
 function updateBoat(dt){
   const B=S.boat, sp=stat.speed();
   let tx=0,ty=0;
-  if(S.mode==='title'){
-    const a=S.t*0.32; tx=Math.cos(a); ty=Math.sin(a)*0.5;
-  }else{
-    tx=S.dir.x; ty=S.dir.y;
-  }
+  tx=S.dir.x; ty=S.dir.y;
   const want=Math.hypot(tx,ty);
-  const cruise=sp*(S.mode==='title'?.45:1);
+  const cruise=sp;
   if(want>0){                             // 船首方位は最小旋回半径に縛られる
     let dh=Math.atan2(ty,tx)-B.hd;
     while(dh>Math.PI) dh-=TAU;
@@ -1363,9 +1368,9 @@ window.addEventListener('keydown',e=>{
 });
 
 /* ================= 開始・終了 ================= */
-const scrTitle=document.getElementById('title'), scrResult=document.getElementById('result');
+const scrResult=document.getElementById('result'), promptEl=document.getElementById('prompt');
 function reset(){
-  S.t=0; S.score=0; S.level=1; S.need=9; S.prog=0; S.totalFish=0; S.chestT=20;
+  S.t=0; S.started=false; S.score=0; S.level=1; S.need=9; S.prog=0; S.totalFish=0; S.chestT=20;
   S.schools.length=0; S.chests.length=0; S.crew.length=0;
   S.parts.length=0; S.wake.length=0; S.rings.length=0; S.spray.length=0; S.flash.length=0;
   S.up={crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1};
@@ -1376,16 +1381,25 @@ function reset(){
   layoutCrew();
   S.schools.push(makeSchool(175,rnd(-28,28),130)); S.totalFish+=130;
 }
-function startGame(){
+function startGame(){          // リザルトからのやり直し
   audioInit(); reset();
-  S.mode='play';
-  scrTitle.classList.remove('on'); scrResult.classList.remove('on');
+  S.mode='play'; S.started=true;
+  promptEl.classList.add('gone');
+  scrResult.classList.remove('on');
+  hud.classList.add('on');
+  lastSec=GAME_TIME;
+}
+function beginRun(){           // 最初の入力で走り出す
+  if(S.started || S.mode!=='play') return;
+  S.started=true;
+  audioInit();
+  promptEl.classList.add('gone');
   hud.classList.add('on');
   lastSec=GAME_TIME;
 }
 const RANKS=[1500,3000,5000,7000,10000,1e9];
 function endGame(){
-  S.mode='result'; hud.classList.remove('on');
+  S.mode='result'; S.started=false; hud.classList.remove('on');
   const nb=S.score>S.best;
   if(nb){ S.best=S.score; saveBest(S.best); }
   document.getElementById('rscore').innerHTML=fmt(S.score)+'<span>'+t('res.scoreUnit')+'</span>';
@@ -1414,6 +1428,7 @@ function toLocal(e){
 }
 function aimMouse(e){                      // PC：画面中央から見た向き
   if(!onField(e)) return;
+  beginRun();
   const r=frameEl.getBoundingClientRect();
   const dx=e.clientX-(r.left+r.width/2), dy=e.clientY-(r.top+r.height/2);
   const m=Math.hypot(dx,dy), dead=r.width*0.045;
@@ -1427,6 +1442,7 @@ frameEl.addEventListener('pointerdown',e=>{
   const p=toLocal(e), st=S.stick;
   st.id=e.pointerId; st.on=true;
   st.ax=p.x; st.ay=p.y; st.tx=p.x; st.ty=p.y;
+  beginRun();
 });
 frameEl.addEventListener('pointermove',e=>{
   if(e.pointerType==='mouse'){ aimMouse(e); return; }
@@ -1446,9 +1462,9 @@ frameEl.addEventListener('pointermove',e=>{
 function endStick(e){
   if(e.pointerId===S.stick.id){ S.stick.id=-1; S.stick.on=false; }  // 離しても進路は維持
 }
+frameEl.addEventListener('pointerdown',()=>audioInit());
 frameEl.addEventListener('pointerup',endStick);
 frameEl.addEventListener('pointercancel',endStick);
-document.getElementById('start').addEventListener('click',startGame);
 document.getElementById('retry').addEventListener('click',startGame);
 
 /* ================= 音 ================= */
@@ -1537,13 +1553,11 @@ function tick(now){
   const dt=raw>.05?.05:raw;
   const p0=performance.now();
   if(S.mode==='play'){
-    S.t+=dt;
-    updateBoat(dt); manageWorld(dt); updateSchools(dt); updateFishing(dt); updateParts(dt);
-    tickCountdown();
-    if(S.t>=GAME_TIME) endGame();
-  }else if(S.mode==='title'){
-    S.t+=dt*.5;
-    updateBoat(dt); manageWorld(dt); updateSchools(dt); updateParts(dt);
+    if(S.started) S.t+=dt;
+    updateBoat(dt); manageWorld(dt); updateSchools(dt);
+    if(S.started) updateFishing(dt);
+    updateParts(dt);
+    if(S.started){ tickCountdown(); if(S.t>=GAME_TIME) endGame(); }
   }
   const p1=performance.now();
   draw(); drawRadar(); updateHUD();
@@ -1556,7 +1570,7 @@ function applyLang(){
   document.title = LANG==='en' ? 'Fish On! ~Pole & Line' : 'カツオ一本釣り';
   const set=(id,k)=>{ const e=document.getElementById(id); if(e) e.textContent=t(k); };
   set('h1a','title.h1a'); set('h1b','title.h1b'); set('h1sub','title.sub');
-  set('start','title.start'); set('retry','res.retry');
+  set('tapHint','title.tap'); set('retry','res.retry');
   set('lblTime','hud.time'); set('lblCatch','hud.catch'); set('lblCatchUnit','hud.catchUnit');
   set('lvlabel','hud.next');
   set('lblPickEyebrow','pick.eyebrow'); set('lblPickHead','pick.head'); set('lblResHead','res.head');
@@ -1577,7 +1591,7 @@ try{ const q=new URLSearchParams(location.search).get('lang'); if(q) setLang(q);
 S.best=loadBest();
 try{ if(localStorage.getItem('ippon.perf')==='1') perfToggle(true); }catch(e){}
 applyLang();
-reset(); S.mode='title';
+reset(); S.mode='play'; S.started=false;
 requestAnimationFrame(tick);
 </script>
 </body>
