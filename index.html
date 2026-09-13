@@ -125,7 +125,25 @@
     transition:opacity .14s ease, transform .16s cubic-bezier(.2,1.5,.4,1)}
   .fvbadge.on{opacity:1; transform:translate(-50%,0) scale(1)}
   .fvbadge b{font-size:.92em; font-weight:700; letter-spacing:.26em; color:#fff}
+  .fvbadge em{font-style:normal; font-size:.82em; font-weight:700; color:#ffd0a0; letter-spacing:.04em}
   .fvbadge i{font-style:normal; font-size:1.1em; font-weight:700; color:#ffe6a8}
+  /* 発動の瞬間に大きく落ちる字 */
+  .fvbig{position:absolute; left:50%; top:29%; z-index:3; pointer-events:none; white-space:nowrap;
+    opacity:0; transform:translate(-50%,-50%) scale(3.2);
+    font-size:4.4em; letter-spacing:.08em; color:#fff;
+    text-shadow:0 0 .35em rgba(255,190,90,.95), 0 .05em 0 #a81d18, 0 .06em .02em #6b0f0c, 0 .3em 1em rgba(0,0,0,.75)}
+  .fvbig.go{animation:fvslam 1.1s cubic-bezier(.18,1.5,.3,1) both}
+  @keyframes fvslam{
+    0%{opacity:0; transform:translate(-50%,-50%) scale(3.2)}
+    14%{opacity:1; transform:translate(-50%,-50%) scale(1)}
+    22%{transform:translate(-50%,-50%) scale(1.08)}
+    32%{transform:translate(-50%,-50%) scale(1)}
+    72%{opacity:1; transform:translate(-50%,-50%) scale(1)}
+    100%{opacity:0; transform:translate(-50%,-50%) scale(1.3)}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .fvbig.go{opacity:1; transform:translate(-50%,-50%) scale(1)}
+  }
 
   .toast{position:absolute; left:50%; top:38%; transform:translate(-50%,-50%);
     display:flex; flex-direction:column; align-items:center; gap:.3em; text-align:center;
@@ -266,7 +284,8 @@
         <canvas id="radar" width="340" height="340"></canvas>
       </div>
 
-      <div class="fvbadge" id="fvbadge"><b id="fvlabel">入れ食い</b><i class="num" id="fvchain">0</i></div>
+      <div class="fvbadge" id="fvbadge"><b id="fvlabel">入れ食い</b><em class="num">×1.5</em><i class="num" id="fvchain">0</i></div>
+      <div class="fvbig disp" id="fvbig">入れ食い</div>
 
       <div class="toast" id="toast"><div class="hd">宝箱</div><div id="toastitems"></div></div>
     </div>
@@ -693,7 +712,7 @@ const S={
   schools:[], chests:[], crew:[], parts:[], wake:[], rings:[], spray:[], flash:[],
   up:{crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1},
   seatX:[], seats:0, chestT:26, sprayAcc:0, start:{crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1}, totalFish:0, choices:[], caught:0,
-  rt:0, shake:0, pop:0, pops:[], burst:null, fvT:0, fvBank:0, fever:false, chain:0
+  rt:0, shake:0, freeze:0, pop:0, pops:[], burst:null, fvT:0, fvBank:0, fever:false, chain:0
 };
 const TONS=[9,19,49,119,199];
 /* 入れ食い＝大群に当たったとき。
@@ -705,6 +724,8 @@ const FV_SEC=7, FV_EXT=0.12;         // 1回の長さと、釣るたびの延長
 const FV_BANK=FV_SEC;                // 延長の総量。これが無いと釣り続ける限り永久に続く
 const FV_PCT=0.45;                   // 湧き量の分布の上位何割を「大群」とみなすか
 const FV_MINPOW=6.0;                 // 漁師2人の2.5本/秒では「入れ食い」に見えないので下限を引く
+const FV_RATE=1.5;                   // 入れ食い中の釣り速度の倍率。ここだけがスコアに効く
+const FV_STOP=0.12;                  // 発動の瞬間に世界を止める秒数
 function fvBig(){                    // manageWorld の湧き量 rnd(lo,hi) と同じ式で境目を出す
   const q=Math.pow(S.t/GAME_TIME,2), lo=50+q*850, hi=150+q*1450;
   return lo+(hi-lo)*FV_PCT;
@@ -916,7 +937,7 @@ function placeCrew(){
 
 /* ================= 漁 ================= */
 function updateFishing(dt){
-  const B=S.boat, rx=stat.rx(), ry=stat.ry(), rate=stat.rate();
+  const B=S.boat, rx=stat.rx(), ry=stat.ry(), rate=stat.rate()*(S.fever?FV_RATE:1);
   const up=[], dn=[];
   for(const s of S.schools){
     if(Math.abs(s.cx-B.x)>rx+s.rx*s.k+14 || Math.abs(s.cy-B.y)>ry+s.rx*s.k+14) continue;
@@ -962,15 +983,22 @@ function doCatch(fm,o){
 }
 
 /* ================= 入れ食い ================= */
-function feverOn(){ S.fever=true; S.fvT=FV_SEC; S.fvBank=FV_BANK; S.chain=1; sfxFever(); bang('fever'); }
+function feverOn(){
+  S.fever=true; S.fvT=FV_SEC; S.fvBank=FV_BANK; S.chain=1;
+  S.freeze=FV_STOP;                              // 一瞬だけ世界を止める
+  sfxFever(); bang('fever');
+  elFvBig.classList.remove('go'); void elFvBig.offsetWidth; elFvBig.classList.add('go');
+  clearTimeout(feverOn._t);
+  feverOn._t=setTimeout(()=>elFvBig.classList.remove('go'),1150);
+}
 function updateFever(dt){
   if(!S.fever) return;
   S.fvT-=dt;
   if(S.fvT<=0){ S.fever=false; S.fvT=0; }
 }
 function bang(kind){                             // 決定的な瞬間の閃光と揺れ
-  S.burst={t:0, dur:kind==='chest'?.55:.45, kind, seed:rnd(0,TAU)};
-  S.shake=Math.min(1, S.shake+(kind==='chest'?.8:1));
+  S.burst={t:0, dur:kind==='fever'?.7:(kind==='chest'?.55:.45), kind, seed:rnd(0,TAU)};
+  S.shake=Math.min(kind==='fever'?1.35:1, S.shake+(kind==='fever'?1.35:(kind==='chest'?.8:1)));
 }
 
 /* ================= 強化 ================= */
@@ -1422,6 +1450,7 @@ let lastTxt={};
 function setTxt(el,v){ if(lastTxt[el.id]!==v){ lastTxt[el.id]=v; el.textContent=v; } }
 const elCatch=document.querySelector('.catch'), elFever=document.getElementById('fever');
 const elFvBadge=document.getElementById('fvbadge'), elFvChain=document.getElementById('fvchain');
+const elFvBig=document.getElementById('fvbig');
 function updateHUD(){
   const rem=Math.max(0,GAME_TIME-S.t);
   elScore.style.transform = S.pop>0.01 ? 'scale('+(1+0.26*S.pop)+')' : '';
@@ -1502,7 +1531,7 @@ function reset(){
   S.t=0; S.started=false; S.score=0; S.level=1; S.need=9; S.prog=0; S.totalFish=0; S.chestT=20;
   S.schools.length=0; S.chests.length=0; S.crew.length=0;
   S.parts.length=0; S.wake.length=0; S.rings.length=0; S.spray.length=0; S.flash.length=0; S.pops.length=0;
-  S.fvT=0; S.fvBank=0; S.fever=false; S.chain=0; S.pop=0; S.shake=0; S.burst=null;
+  S.fvT=0; S.fvBank=0; S.fever=false; S.chain=0; S.pop=0; S.shake=0; S.freeze=0; S.burst=null;
   S.up={crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1};
   S.start={crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1};
   Object.assign(S.boat,{x:0,y:0,vx:0,vy:0,hd:0,sp:0,face:1,bob:0});
@@ -1531,7 +1560,7 @@ function beginRun(){           // 最初の入力で走り出す
 const RANKS=[1500,3000,5000,7000,10000,1e9];
 function endGame(){
   S.mode='result'; S.started=false; hud.classList.remove('on');
-  S.fever=false; S.fvT=0; elFever.style.opacity='0'; elFvBadge.classList.remove('on');
+  S.fever=false; S.fvT=0; elFever.style.opacity='0'; elFvBadge.classList.remove('on'); elFvBig.classList.remove('go');
   const nb=S.score>S.best;
   if(nb){ S.best=S.score; saveBest(S.best); }
   document.getElementById('rscore').innerHTML=fmt(S.score)+'<span>'+t('res.scoreUnit')+'</span>';
@@ -1638,7 +1667,11 @@ function sfxCatch(){
   tone(rnd(640,1020)*up,.07,'triangle',.055,1.7);
   if(Math.random()<.5) splash(.03);
 }
-function sfxFever(){ [523,659,784,1046,1318].forEach((f,i)=>tone(f,.2,'square',.06,1.25,i*.045)); }
+function sfxFever(){
+  tone(98,.55,'sawtooth',.13,.62);                // 腹に来る低音を1発
+  tone(147,.4,'sine',.10,.7,.02);
+  [523,659,784,1046,1318].forEach((f,i)=>tone(f,.22,'square',.07,1.25,.06+i*.05));
+}
 function sfxLevel(){ [523,659,784].forEach((f,i)=>tone(f,.22,'triangle',.09,1,i*.07)); }
 function sfxPick(){ tone(880,.12,'square',.05,1.2); }
 function sfxChest(){ [392,523,659,784,1046].forEach((f,i)=>tone(f,.26,'triangle',.08,1,i*.06)); }
@@ -1690,7 +1723,8 @@ function tick(now){
   S.pop=Math.max(0,S.pop-dt*4.2);
   S.shake=Math.max(0,S.shake-dt*3.4);
   if(S.burst) S.burst.t+=dt;
-  if(S.mode==='play'){
+  if(S.freeze>0) S.freeze-=dt;                   // 止まっている間も閃光だけは進む
+  else if(S.mode==='play'){
     if(S.started) S.t+=dt;
     updateBoat(dt); manageWorld(dt); updateSchools(dt);
     if(S.started){ updateFishing(dt); updateFever(dt); }
@@ -1711,7 +1745,8 @@ function applyLang(){
   set('tapHint','title.tap'); set('retry','res.retry');
   set('lblTime','hud.time'); set('lblCatch','hud.catch'); set('lblCatchUnit','hud.catchUnit');
   set('lvlabel','hud.next');
-  set('fvlabel','hud.fever');
+  set('fvlabel','hud.fever'); set('fvbig','hud.fever');
+  elFvBadge.querySelector('em').textContent='\u00d7'+FV_RATE.toFixed(1);
   set('lblPickEyebrow','pick.eyebrow'); set('lblPickHead','pick.head'); set('lblResHead','res.head');
   document.querySelectorAll('#stats .chip b[data-k]').forEach(b=>{ b.textContent=t(b.dataset.k); });
   document.getElementById('titlebest').textContent = S.best ? t('title.best',{n:fmt(S.best)}) : '';
