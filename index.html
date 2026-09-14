@@ -118,7 +118,7 @@
   .fever.hot{animation:fvpulse .48s ease-in-out infinite alternate}
   @keyframes fvpulse{from{filter:brightness(.72)} to{filter:brightness(1.4)}}
   @media (prefers-reduced-motion:reduce){ .fever.hot{animation:none; filter:brightness(1)} }
-  /* 背景がそのまま残り時間。FV_HITS 本釣るたび満タンに戻る */
+  /* 背景がそのままラウンドの残り時間。空になると継続抽選 */
   .fvbadge{position:absolute; top:6.2em; left:50%; display:flex; align-items:baseline; gap:.55em;
     padding:.22em .9em .3em; opacity:0; transform:translate(-50%,0) scale(1.7); overflow:hidden;
     background:linear-gradient(180deg,#4a0f0c,#2c0806); border:1px solid #ff8b6a; border-radius:2px;
@@ -289,7 +289,7 @@
         <canvas id="radar" width="340" height="340"></canvas>
       </div>
 
-      <div class="fvbadge" id="fvbadge"><span class="fvbar" id="fvbar"></span><b id="fvlabel">入れ食い</b><em class="num">×1.5</em><i class="num" id="fvchain">0</i></div>
+      <div class="fvbadge" id="fvbadge"><span class="fvbar" id="fvbar"></span><b id="fvlabel">入れ食い</b><em class="num" id="fvround">1連</em><i class="num" id="fvchain">0</i></div>
       <div class="fvbig disp" id="fvbig">入れ食い</div>
 
       <div class="toast" id="toast"><div class="hd">宝箱</div><div id="toastitems"></div></div>
@@ -351,7 +351,7 @@ ja:{
  'title.h1a':'カツオ','title.h1b':'一本釣り','title.sub':'',
  'title.tap':'動かして出港','title.best':'自己ベスト {n}本',
  'hud.time':'ノコリ','hud.catch':'ギョカク','hud.catchUnit':'本','hud.next':'NEXT',
- 'hud.fever':'入れ食い',
+ 'hud.fever':'入れ食い','hud.round':'{n}連',
  'pick.eyebrow':'タイリョウ','pick.head':'どれを積む？',
  'up.crew.name':'漁師','up.crew.short':'漁師','up.crew.fl':'漁師が3人増える。釣り座が空いていなければ待機に回る。',
  'up.hull.name':'船体','up.hull.short':'船体','up.hull.fl':'船が大きくなり、釣り座と漁獲範囲が広がる。',
@@ -379,7 +379,7 @@ en:{
  'title.h1a':'FISH','title.h1b':'ON!','title.sub':'~Pole & Line',
  'title.tap':'Move to cast off','title.best':'BEST {n}',
  'hud.time':'TIME','hud.catch':'CATCH','hud.catchUnit':'','hud.next':'NEXT',
- 'hud.fever':'ON FIRE',
+ 'hud.fever':'ON FIRE','hud.round':'CHAIN {n}',
  'pick.eyebrow':'BIG CATCH','pick.head':'What comes aboard?',
  'up.crew.name':'Crew','up.crew.short':'Crew','up.crew.fl':'Three more hands. They wait ashore if no berth is free.',
  'up.hull.name':'Hull','up.hull.short':'Hull','up.hull.fl':'A bigger boat: more berths and a wider catch area.',
@@ -736,7 +736,7 @@ const S={
   schools:[], chests:[], crew:[], parts:[], wake:[], rings:[], spray:[], flash:[],
   up:{crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1},
   seatX:[], seats:0, chestT:26, sprayAcc:0, start:{crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1}, totalFish:0, choices:[], caught:0,
-  rt:0, shake:0, freeze:0, pop:0, pops:[], burst:null, fvT:0, fvHit:0, fvPulse:0, fever:false, chain:0
+  rt:0, shake:0, freeze:0, pop:0, pops:[], burst:null, fvT:0, fvRound:0, fvLock:0, fvPulse:0, fever:false, chain:0
 };
 const TONS=[9,19,49,119,199];
 /* 入れ食い＝大群に当たったとき。
@@ -744,17 +744,14 @@ const TONS=[9,19,49,119,199];
    釣れ高でも連続時間でも峰が立たない（どちらで判定しても常時発動になる）ので、
    状態検出はやめて「その時間帯の湧き量の上限に近い群れに入った」ことを引き金にする。
    魚探で大きい反応を選ぶ意味がここで出る。 */
-const FV_SEC=3.0;                    // タイマーの長さ。切れたら入れ食いは終わる
-const FV_HITS=10;                    // この本数を釣るたびタイマーが満タンに戻る。
-                                     // 終盤は密度で溜まりっぱなしになるが、そこは直さずインフレとして受ける
-const FV_PCT=0.38;                   // 湧き量の分布の上位何割を「大群」とみなすか
-const FV_MINPOW=4.5;                 // 漁師2人の2.5本/秒では「入れ食い」に見えないので下限を引く
+/* 入れ食いはパチンコ式。1本釣るごとに突入抽選、1ラウンドごとに継続抽選。
+   大きい群れほど抽選回数が増えるので、狙いに行く意味は確率として残る。 */
+const FV_ENTRY=0.006;                // 1本あたりの突入確率
+const FV_LOCK=4;                     // 終了後この秒数は突入抽選をしない
+const FV_ROUND=6;                    // 1ラウンドの長さ（秒）
+const FV_CONT=0.68;                  // ラウンド終わりの継続確率。期待 1/(1-C) ラウンド
 const FV_RATE=1.5;                   // 入れ食い中の釣り速度の倍率。ここだけがスコアに効く
-const FV_STOP=0.12;                  // 発動の瞬間に世界を止める秒数
-function fvBig(){                    // manageWorld の湧き量 rnd(lo,hi) と同じ式で境目を出す
-  const q=Math.pow(S.t/GAME_TIME,2), lo=50+q*850, hi=150+q*1450;
-  return lo+(hi-lo)*FV_PCT;
-}
+const FV_STOP=0.12;                  // 突入の瞬間に世界を止める秒数
 let REDUCE=false;
 try{ REDUCE=matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){}
 const stat = {
@@ -998,18 +995,15 @@ function doCatch(fm,o){
   S.parts.push({x:o.f.wx, y:o.f.wy, x0:o.f.wx, y0:o.f.wy, t:0, dur:.28, a:o.f.a, d:o.f.dd, fm});
   S.rings.push({x:o.f.wx, y:o.f.wy, t:0});
   S.pop=1;                                       // ギョカクの数字を弾ませる
-  if(S.fever){                                   // FV_HITS 本ごとにタイマーが満タンに戻る
-    S.chain++;
-    if(++S.fvHit>=FV_HITS){ S.fvHit=0; S.fvT=FV_SEC; S.fvPulse=1; }
-  }
-  else if(!o.s.fvUsed && o.s.n0>=fvBig() && stat.power()>=FV_MINPOW){ o.s.fvUsed=true; feverOn(); }
+  if(S.fever) S.chain++;
+  else if(S.fvLock<=0 && Math.random()<FV_ENTRY) feverOn();   // 1本ごとの突入抽選
   sfxCatch();
   if(S.prog>=S.need) levelUp();
 }
 
 /* ================= 入れ食い ================= */
 function feverOn(){
-  S.fever=true; S.fvT=FV_SEC; S.fvHit=0; S.fvPulse=1; S.chain=1;
+  S.fever=true; S.fvT=FV_ROUND; S.fvRound=1; S.fvPulse=1; S.chain=1;
   S.freeze=FV_STOP;                              // 一瞬だけ世界を止める
   sfxFever(); bang('fever');
   elFvBig.classList.remove('go'); void elFvBig.offsetWidth; elFvBig.classList.add('go');
@@ -1017,13 +1011,22 @@ function feverOn(){
   feverOn._t=setTimeout(()=>elFvBig.classList.remove('go'),1150);
 }
 function updateFever(dt){
+  if(S.fvLock>0) S.fvLock-=dt;
   if(!S.fever) return;
   S.fvT-=dt;
-  if(S.fvT<=0){ S.fever=false; S.fvT=0; S.fvHit=0; elFvBadge.style.transform=''; }
+  if(S.fvT>0) return;
+  if(Math.random()<FV_CONT){                     // 継続。ここがこのモードの山場
+    S.fvRound++; S.fvT=FV_ROUND; S.fvPulse=1;
+    bang('cont'); sfxCont();
+  }else{
+    S.fever=false; S.fvT=0; S.fvLock=FV_LOCK;
+    elFvBadge.style.transform=''; sfxFeverEnd();
+  }
 }
 function bang(kind){                             // 決定的な瞬間の閃光と揺れ
-  S.burst={t:0, dur:kind==='fever'?.7:(kind==='chest'?.55:.45), kind, seed:rnd(0,TAU)};
-  S.shake=Math.min(kind==='fever'?1.35:1, S.shake+(kind==='fever'?1.35:(kind==='chest'?.8:1)));
+  const big=kind==='fever';
+  S.burst={t:0, dur:big?.7:(kind==='cont'?.34:(kind==='chest'?.55:.45)), kind, seed:rnd(0,TAU)};
+  S.shake=Math.min(big?1.35:1, S.shake+(big?1.35:(kind==='cont'?.45:(kind==='chest'?.8:1))));
 }
 
 /* ================= 強化 ================= */
@@ -1317,6 +1320,7 @@ function drawBurst(){
   const u=b.t/b.dur;
   if(u>=1){ S.burst=null; return; }
   const gold=b.kind!=='lv';
+  if(b.kind==='cont'){ ctx.globalAlpha=(1-u)*.55; ctx.fillStyle='#ffe9b0'; ctx.fillRect(0,0,VW,VH); }
   ctx.globalAlpha=(1-u)*(1-u)*(REDUCE?.16:.62);
   ctx.fillStyle=gold?'#ffe9b0':'#ffffff';
   ctx.fillRect(0,0,VW,VH);
@@ -1478,20 +1482,21 @@ const elCatch=document.querySelector('.catch'), elFever=document.getElementById(
 const elFvBadge=document.getElementById('fvbadge'), elFvChain=document.getElementById('fvchain');
 const elFvBig=document.getElementById('fvbig');
 const elFvBar=document.getElementById('fvbar');
+const elFvRound=document.getElementById('fvround');
 function updateHUD(){
   const rem=Math.max(0,GAME_TIME-S.t);
   elScore.style.transform = S.pop>0.01 ? 'scale('+(1+0.26*S.pop)+')' : '';
   const playing=S.mode==='play';
-  const heat=clamp(S.fvT/1.2,0,1);                   // 終わりぎわに縁が引いていく
-  elFever.style.opacity = heat? heat.toFixed(2) : '0';
+  elFever.style.opacity = S.fever ? '1' : '0';
   elFever.classList.toggle('hot', S.fever && playing);
   elCatch.classList.toggle('hot', S.fever);
   elFvBadge.classList.toggle('on', S.fever && playing);   // 3択の見出しと重なるので伏せる
   if(S.fever){
     setTxt(elFvChain, S.chain+t('hud.catchUnit'));
-    const u=clamp(S.fvT/FV_SEC,0,1);
+    const u=clamp(S.fvT/FV_ROUND,0,1);
     elFvBar.style.width=(u*100).toFixed(1)+'%';
-    elFvBar.classList.toggle('low', u<0.34);
+    elFvBar.classList.toggle('low', u<0.25);       // 継続抽選が近い
+    setTxt(elFvRound, t('hud.round',{n:S.fvRound}));
     elFvBadge.style.transform='translate(-50%,0) scale('+(1+0.10*S.fvPulse).toFixed(3)+')';
   }
   setTxt(elTime, rem>10 ? Math.floor(rem/60)+':'+String(Math.floor(rem%60)).padStart(2,'0') : rem.toFixed(1));
@@ -1564,15 +1569,14 @@ function reset(){
   S.t=0; S.started=false; S.score=0; S.level=1; S.need=9; S.prog=0; S.totalFish=0; S.chestT=20;
   S.schools.length=0; S.chests.length=0; S.crew.length=0;
   S.parts.length=0; S.wake.length=0; S.rings.length=0; S.spray.length=0; S.flash.length=0; S.pops.length=0;
-  S.fvT=0; S.fvHit=0; S.fvPulse=0; S.fever=false; S.chain=0; S.pop=0; S.shake=0; S.freeze=0; S.burst=null;
+  S.fvT=0; S.fvRound=0; S.fvLock=0; S.fvPulse=0; S.fever=false; S.chain=0; S.pop=0; S.shake=0; S.freeze=0; S.burst=null;
   S.up={crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1};
   S.start={crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1};
   Object.assign(S.boat,{x:0,y:0,vx:0,vy:0,hd:0,sp:0,face:1,bob:0});
   S.dir.x=0; S.dir.y=0;
   S.stick.id=-1; S.stick.on=false; S.stick.f=0;
   layoutCrew();
-  const s0=makeSchool(175,rnd(-28,28),130); s0.fvUsed=true;   // 出港直後の群れでは入れ食いにしない
-  S.schools.push(s0); S.totalFish+=130;
+  S.schools.push(makeSchool(175,rnd(-28,28),130)); S.totalFish+=130;
 }
 function startGame(){          // リザルトからのやり直し
   audioInit(); reset();
@@ -1700,6 +1704,11 @@ function sfxCatch(){
   tone(rnd(640,1020)*up,.07,'triangle',.055,1.7);
   if(Math.random()<.5) splash(.03);
 }
+function sfxCont(){                                // 継続した合図。1段上がる
+  tone(392,.16,'square',.07,1.5);
+  tone(784,.2,'triangle',.07,1.4,.05);
+}
+function sfxFeverEnd(){ tone(330,.3,'triangle',.06,.55); tone(220,.4,'sine',.05,.6,.04); }
 function sfxFever(){
   tone(98,.55,'sawtooth',.13,.62);                // 腹に来る低音を1発
   tone(147,.4,'sine',.10,.7,.02);
@@ -1780,6 +1789,7 @@ function applyLang(){
   set('lblTime','hud.time'); set('lblCatch','hud.catch'); set('lblCatchUnit','hud.catchUnit');
   set('lvlabel','hud.next');
   set('fvlabel','hud.fever'); set('fvbig','hud.fever');
+  elFvRound.textContent=t('hud.round',{n:Math.max(1,S.fvRound)});
   elFvBadge.querySelector('em').textContent='\u00d7'+FV_RATE.toFixed(1);
   set('lblPickEyebrow','pick.eyebrow'); set('lblPickHead','pick.head'); set('lblResHead','res.head');
   document.querySelectorAll('#stats .chip b[data-k]').forEach(b=>{ b.textContent=t(b.dataset.k); });
