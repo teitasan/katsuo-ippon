@@ -367,8 +367,8 @@ ja:{
  'up.hull.name':'船体','up.hull.short':'船体','up.hull.fl':'船が大きくなり、釣り座と漁獲範囲が広がる。',
  'up.rate.name':'釣具','up.rate.short':'釣具','up.rate.fl':'漁師ひとりあたりの釣り上げが速くなる。',
  'up.engine.name':'機関','up.engine.short':'機関','up.engine.fl':'船の移動速度が上がる。',
- 'up.sonar.name':'魚群探知機','up.sonar.short':'魚探','up.sonar.fl':'魚探に映る範囲が広がる。',
- 'up.lure.name':'集魚装置','up.lure.short':'集魚','up.lure.fl':'魚群が船のほうへ寄ってくるようになる。',
+ 'up.sonar.name':'魚群探知機','up.sonar.short':'魚探','up.sonar.fl':'魚探に映る範囲が広がる。入れ食いの継続率の上限も上がる。',
+ 'up.lure.name':'集魚装置','up.lure.short':'集魚','up.lure.fl':'魚群が船のほうへ寄ってくる。入れ食いが1回ぶん長くなる。',
  'pick.lvCrew':'漁師 +3人','pick.lv':'Lv{a} → Lv{b}',
  'pick.efCrew':'うち待機 {a}人　釣り座 {b}人','pick.efBerth':'釣り座 {b}人',
  'pick.efHull':'{a}t → {b}t船',
@@ -395,8 +395,8 @@ en:{
  'up.hull.name':'Hull','up.hull.short':'Hull','up.hull.fl':'A bigger boat: more berths and a wider catch area.',
  'up.rate.name':'Tackle','up.rate.short':'Tackle','up.rate.fl':'Each hand lands fish faster.',
  'up.engine.name':'Engine','up.engine.short':'Engine','up.engine.fl':'The boat moves faster.',
- 'up.sonar.name':'Sonar','up.sonar.short':'Sonar','up.sonar.fl':'The scope shows more of the sea.',
- 'up.lure.name':'Chum Rig','up.lure.short':'Chum','up.lure.fl':'Schools drift toward the boat.',
+ 'up.sonar.name':'Sonar','up.sonar.short':'Sonar','up.sonar.fl':'The scope shows more sea, and raises the cap on staying on fire.',
+ 'up.lure.name':'Chum Rig','up.lure.short':'Chum','up.lure.fl':'Schools drift toward the boat, and each run on fire lasts longer.',
  'pick.lvCrew':'+3 crew','pick.lv':'Lv{a} → Lv{b}',
  'pick.efCrew':'{a} standing by · {b} berths','pick.efBerth':'{b} berths',
  'pick.efHull':'{a}t → {b}t boat',
@@ -788,10 +788,14 @@ const FV_SURE=0.0015;                // 入れ食い中、1本あたりの「確
                                      // 率は突入より低いが、1ラウンドで100本以上抜くので出方はこちらが遥かに上
 const FV_LOCK=4;                     // 終了後この秒数は突入抽選をしない
 const FV_MINFISH=45;                 // 竿の下にこれだけ魚がいないと突入しない（群れの尻尾で当たらないように）
-const FV_SEC=5.0;                    // 1ラウンドの長さ
+const FV_SEC=10;                     // 1ラウンドの基本の長さ（秒）
+const FV_LURE_SEC=1.0;               // 集魚Lv1つあたりの延長
+const FV_CAP=0.70;                   // 継続率の上限。ここには届かせない
+const FV_SONAR_CAP=0.03;             // 魚探Lv1つあたり上限UP
+const FV_K=70;                       // 飽和の速さ。20本=17% 50本=36% 100本=53% 300本=69%
 const FV_FADE=1.6;                   // 残りこの秒数から縁が引きはじめる
-/* 継続率＝そのラウンドで想定最大の何割を釣れたか。瞬間の釣れ高は群れの中か外かで
-   1か0にしかならないが、5秒で均すと「何割を魚の上で過ごせたか」になって連続量になる */
+/* 継続率はラウンド中に釣った「本数そのもの」の飽和曲線。割合ではなく絶対数なので、
+   序盤は本数が出ず自然に繋がらない／終盤は数百本でほぼ上限、という形が時間補正なしで出る */
 const FV_RATE=1.1;                   // 入れ食い中の釣り速度の倍率。ここだけがスコアに効く
 const FV_STOP=0.12;                  // 突入の瞬間に世界を止める秒数
 let REDUCE=false;
@@ -1050,11 +1054,12 @@ function doCatch(fm,o){
   S.parts.push({x:o.f.wx, y:o.f.wy, x0:o.f.wx, y0:o.f.wy, t:0, dur:.28, a:o.f.a, d:o.f.dd, fm});
   S.rings.push({x:o.f.wx, y:o.f.wy, t:0});
   S.pop=1;                                       // ギョカクの数字を弾ませる
-  S.fvCaught++;                                  // このラウンドで何本抜けたか
-  if(!S.fvSure && Math.random()<FV_SURE){        // 確定。ここを引けば継続率に関わらず次がある
-    S.fvSure=true; S.fvPulse=1; bang('cont'); sfxSure();
+  if(S.fever){
+    S.chain++; S.fvCaught++;                     // このラウンドで何本抜けたかが継続率になる
+    if(!S.fvSure && Math.random()<FV_SURE){      // 確定。引けば継続率に関わらず次がある
+      S.fvSure=true; S.fvPulse=1; bang('cont'); sfxSure();
+    }
   }
-  if(S.fever) S.chain++;
   else if(S.fvLock<=0 && S.inRange>=FV_MINFISH && Math.random()<FV_ENTRY) feverOn();   // 1本ごとの突入抽選
   sfxCatch();
   if(S.prog>=S.need) levelUp();
@@ -1062,16 +1067,17 @@ function doCatch(fm,o){
 
 /* ================= 入れ食い ================= */
 function feverOn(){
-  S.fever=true; S.fvT=FV_SEC; S.fvCaught=0; S.fvSure=false; S.fvRound=1; S.fvPulse=1; S.chain=1;
+  S.fever=true; S.fvT=fvSec(); S.fvCaught=0; S.fvSure=false; S.fvRound=1; S.fvPulse=1; S.chain=1;
   S.freeze=FV_STOP;                              // 一瞬だけ世界を止める
   sfxFever(); bang('fever');
   elFvBig.classList.remove('go'); void elFvBig.offsetWidth; elFvBig.classList.add('go');
   clearTimeout(feverOn._t);
   feverOn._t=setTimeout(()=>elFvBig.classList.remove('go'),1150);
 }
-function fvOdds(){                               // 今のラウンドで積んだ継続率
-  const max=Math.max(1, stat.power()*FV_RATE*FV_SEC);
-  return clamp(S.fvCaught/max, 0, 1);
+function fvCap(){ return FV_CAP + (S.up.sonar-1)*FV_SONAR_CAP; }   // 魚探で天井が上がる
+function fvSec(){ return FV_SEC + (S.up.lure-1)*FV_LURE_SEC; }     // 集魚で1回が長くなる
+function fvOdds(){                               // 釣った本数だけで決まる。割合は見ない
+  return fvCap()*(1-Math.exp(-S.fvCaught/FV_K));
 }
 function updateFever(dt){
   if(S.fvLock>0) S.fvLock-=dt;
@@ -1079,7 +1085,7 @@ function updateFever(dt){
   S.fvT-=dt;
   if(S.fvT>0) return;
   if(S.fvSure || Math.random()<fvOdds()){        // 確定を引いていれば抽選を飛ばす
-    S.fvRound++; S.fvCaught=0; S.fvSure=false; S.fvT=FV_SEC; S.fvPulse=1;
+    S.fvRound++; S.fvCaught=0; S.fvSure=false; S.fvT=fvSec(); S.fvPulse=1;
     bang('cont'); sfxCont();
   }else{
     S.fever=false; S.fvT=0; S.fvLock=FV_LOCK;   // 終わりは無音。通常に戻るだけ
@@ -1580,7 +1586,7 @@ function updateHUD(){
   elCatch.classList.toggle('hot', S.fever);
   elFvBadge.classList.toggle('on', S.fever && playing);   // 3択の見出しと重なるので伏せる
   if(S.fever){
-    const u=clamp(S.fvT/FV_SEC,0,1);               // バーはラウンドの残り時間だけ
+    const u=clamp(S.fvT/fvSec(),0,1);              // バーはラウンドの残り時間だけ
     elFvBar.style.width=(u*100).toFixed(1)+'%';
     elFvBar.classList.toggle('low', S.fvT<FV_FADE); // 継続抽選が近い
     setTxt(elFvRound, t('hud.round',{n:S.fvRound}));
@@ -1824,7 +1830,7 @@ const dbgFever=document.getElementById('dbgFever');
 dbgFever.addEventListener('click',e=>{             // 左：発動／継続を1段  右：終了
   e.preventDefault(); e.stopPropagation();
   if(!S.fever) feverOn();
-  else { S.fvRound++; S.fvCaught=0; S.fvT=FV_SEC; S.fvPulse=1; bang('cont'); sfxCont(); }
+  else { S.fvRound++; S.fvCaught=0; S.fvSure=false; S.fvT=fvSec(); S.fvPulse=1; bang('cont'); sfxCont(); }
 });
 dbgFever.addEventListener('contextmenu',e=>{
   e.preventDefault(); e.stopPropagation();
