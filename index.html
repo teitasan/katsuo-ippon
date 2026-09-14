@@ -1019,8 +1019,8 @@ function updateFever(dt){
     S.fvRound++; S.fvT=FV_ROUND; S.fvPulse=1;
     bang('cont'); sfxCont();
   }else{
-    S.fever=false; S.fvT=0; S.fvLock=FV_LOCK;
-    elFvBadge.style.transform=''; sfxFeverEnd();
+    S.fever=false; S.fvT=0; S.fvLock=FV_LOCK;   // 終わりは無音。通常に戻るだけ
+    elFvBadge.style.transform='';
   }
 }
 function bang(kind){                             // 決定的な瞬間の閃光と揺れ
@@ -1708,7 +1708,6 @@ function sfxCont(){                                // 継続した合図。1段�
   tone(392,.16,'square',.07,1.5);
   tone(784,.2,'triangle',.07,1.4,.05);
 }
-function sfxFeverEnd(){ tone(330,.3,'triangle',.06,.55); tone(220,.4,'sine',.05,.6,.04); }
 function sfxFever(){
   tone(98,.55,'sawtooth',.13,.62);                // 腹に来る低音を1発
   tone(147,.4,'sine',.10,.7,.02);
