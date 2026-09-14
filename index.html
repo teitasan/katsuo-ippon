@@ -656,6 +656,32 @@ function buildPop(){
   popNorm=mk('#ffffff'); popFv=mk('#ff5a4a');
 }
 
+/* ---------------- カモメ（真上から見た2コマ＋8方向） ---------------- */
+const GULL_MAP=[
+  ['..#..','..#..','#####','..#..','..#..'],    // 翼を広げた
+  ['.....','..#..','#####','..#..','.....']     // 打ち下ろし
+];
+const GANG=8, GCELL=8;
+let gullAtlas=null;
+function buildGull(){
+  gullAtlas=mkc(GCELL*GANG, GCELL*2);
+  const g=gx(gullAtlas);
+  for(let f=0;f<2;f++){
+    const base=mkc(5,5), b=gx(base), rows=GULL_MAP[f];
+    for(let y=0;y<5;y++) for(let x=0;x<5;x++)
+      if(rows[y][x]==='#') px(b,x,y,1,1, y===2?'#eaf3f4':'#cfdde6');
+    px(b,4,2,1,1,'#ffffff');                    // 頭
+    px(b,0,2,1,1,'#9db8c6');                    // 尾
+    for(let a=0;a<GANG;a++){
+      g.save();
+      g.translate(a*GCELL+GCELL/2, f*GCELL+GCELL/2);
+      g.rotate(a/GANG*TAU);
+      g.drawImage(base,-2.5,-2.5);
+      g.restore();
+    }
+  }
+}
+
 /* ---------------- 宝箱 ---------------- */
 let chestCv=null;
 function buildChest(){
@@ -810,7 +836,7 @@ function saveBest(v){ try{localStorage.setItem('ippon.best',String(v));}catch(e)
 "use strict";
 /* ================= アセット構築 ================= */
 function initAssets(){
-  buildFishAtlas(); buildSea(); buildChest(); buildPop(); buildFlag();
+  buildFishAtlas(); buildSea(); buildChest(); buildGull(); buildPop(); buildFlag();
   for(let lv=1;lv<=5;lv++) boats.push(buildBoat(lv));
   for(let r=0;r<2;r++){ fishers[r]=[[],[]];
     for(let p=0;p<2;p++) for(let i=0;i<3;i++) fishers[r][p][i]=buildFisher(i,r,p); }
@@ -819,6 +845,17 @@ function initAssets(){
 
 /* ================= 魚群 ================= */
 const schoolRadius=n=>Math.min(140,Math.sqrt(n)*5.0);   // 上限で頭打ちにして、大群ほど密にする
+/* カモメは完全に飾り。群れより広く回るので、魚が見えるより先に居場所が知れる。
+   数が群れの規模に比例するので「多い＝大きい」の予告になる */
+const GULL={min:140, k:3.4, max:14, lo:1.15, hi:1.95};
+function makeGulls(n0){
+  if(n0<GULL.min) return null;
+  const k=Math.min(GULL.max, Math.round(Math.sqrt(n0)/GULL.k));
+  const out=[];
+  for(let i=0;i<k;i++) out.push({a:rnd(0,TAU), w:rnd(.22,.5)*(Math.random()<.5?-1:1),
+    r:rnd(GULL.lo,GULL.hi), ph:rnd(0,TAU), fs:rnd(5,9)});
+  return out;
+}
 const PSTEP=4, PN=104;            // 先頭の軌跡を4px刻みで416pxぶん保持する
 /* 表に出さない副効果の係数（1レベルあたり） */
 const TUNE={ lureSchoolSize:0.12, sonarChestRate:0.15 };
@@ -828,7 +865,7 @@ function makeSchool(x,y,count){
   const hx=x+ca*rx, hy=y+sa*rx;   // x,y は群れの胴体中心。先頭はその前方
   const s={x:hx, y:hy, cx:x, cy:y, ca:ang, ang, hd:ang, sp:rnd(9,18), rx, ry,
     turn:0, k:1, pulse:rnd(0,TAU), pi:0, pfrac:0,
-    path:new Float32Array(PN*5), alive:count, n0:count, fish:new Array(count)};
+    path:new Float32Array(PN*5), alive:count, n0:count, fish:new Array(count), gulls:makeGulls(count)};
   for(let i=0;i<PN;i++){                       // 初期軌跡はまっすぐ後ろへ
     const b=(((0-i)%PN)+PN)%PN*5;
     s.path[b]=hx-ca*i*PSTEP; s.path[b+1]=hy-sa*i*PSTEP;
@@ -881,6 +918,7 @@ function manageWorld(dt){
 function updateSchools(dt){
   const B=S.boat, lr=stat.lureR(), lf=stat.lureF();
   for(const s of S.schools){
+    if(s.gulls) for(const gu of s.gulls) gu.a+=gu.w*dt;
     s.turn=clamp(s.turn+rnd(-1,1)*dt*2.6,-0.7,0.7);
     s.ang+=s.turn*dt;
     s.pulse+=dt*1.7;
@@ -1216,6 +1254,28 @@ function drawWake(){
   }
   ctx.globalAlpha=1;
 }
+function drawGulls(){
+  const B=S.boat, ox=VW/2-B.x, oy=VH/2-B.y;
+  for(const s of S.schools){
+    const gs=s.gulls; if(!gs) continue;
+    const live=Math.ceil(gs.length*s.alive/s.n0);   // 魚が減ると鳥も減っていく
+    const R=s.rx*s.k;
+    for(let i=0;i<live;i++){
+      const gu=gs[i], rr=R*gu.r;
+      const x=s.cx+Math.cos(gu.a)*rr+ox;
+      const y=s.cy+Math.sin(gu.a)*rr*0.6+oy-7-Math.sin(S.rt*1.7+gu.ph)*2;
+      if(x<-8||x>VW+8||y<-8||y>VH+8) continue;
+      ctx.globalAlpha=.22; ctx.fillStyle='#04202f';
+      ctx.fillRect(Math.round(x), Math.round(y)+8, 1, 1);   // 水面の影で高さを出す
+      ctx.globalAlpha=1;
+      const dir=gu.a+(gu.w>0?Math.PI/2:-Math.PI/2);
+      const ai=((Math.round(dir/TAU*GANG)%GANG)+GANG)%GANG;
+      const fr=((S.rt*gu.fs+gu.ph)|0)&1;
+      ctx.drawImage(gullAtlas, ai*GCELL, fr*GCELL, GCELL, GCELL,
+        (x-GCELL/2)|0, (y-GCELL/2)|0, GCELL, GCELL);
+    }
+  }
+}
 function drawRings(){
   const B=S.boat, ox=VW/2-B.x, oy=VH/2-B.y;
   ctx.strokeStyle='#dff0f6'; ctx.lineWidth=1;
@@ -1361,7 +1421,7 @@ function draw(){
   }
   if(sx||sy) ctx.setTransform(1,0,0,1,sx,sy);
   drawSea(); drawSchools(); drawChests(); drawRings(); drawWake();
-  drawBoat(); drawSpray(); drawLines(); drawPops();
+  drawBoat(); drawSpray(); drawLines(); drawPops(); drawGulls();
   if(sx||sy) ctx.setTransform(1,0,0,1,0,0);
   drawBurst(); drawStick();
 }
