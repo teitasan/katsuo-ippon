@@ -369,7 +369,7 @@ ja:{
  'up.engine.name':'機関','up.engine.short':'機関','up.engine.fl':'船の移動速度が上がる。',
  'up.sonar.name':'魚群探知機','up.sonar.short':'魚探','up.sonar.fl':'魚探に映る範囲が広がる。少ない釣果でも入れ食いが続きやすくなる。',
  'up.lure.name':'集魚装置','up.lure.short':'集魚','up.lure.fl':'魚群が船のほうへ寄ってくる。入れ食いが1回ぶん長くなる。',
- 'pick.lvCrew':'漁師 +3人','pick.lv':'Lv{a} → Lv{b}',
+ 'pick.lvCrew':'漁師 +{n}人','pick.lv':'Lv{a} → Lv{b}',
  'pick.efCrew':'うち待機 {a}人　釣り座 {b}人','pick.efBerth':'釣り座 {b}人',
  'pick.efHull':'{a}t → {b}t船',
  'unit.crew':'人','unit.rate':'本/秒','unit.knot':'ノット','unit.km':'km','unit.m':'m','unit.none':'なし',
@@ -397,7 +397,7 @@ en:{
  'up.engine.name':'Engine','up.engine.short':'Engine','up.engine.fl':'The boat moves faster.',
  'up.sonar.name':'Sonar','up.sonar.short':'Sonar','up.sonar.fl':'The scope shows more sea, and keeps a run alive on a thinner haul.',
  'up.lure.name':'Chum Rig','up.lure.short':'Chum','up.lure.fl':'Schools drift toward the boat, and each run on fire lasts longer.',
- 'pick.lvCrew':'+3 crew','pick.lv':'Lv{a} → Lv{b}',
+ 'pick.lvCrew':'+{n} crew','pick.lv':'Lv{a} → Lv{b}',
  'pick.efCrew':'{a} standing by · {b} berths','pick.efBerth':'{b} berths',
  'pick.efHull':'{a}t → {b}t boat',
  'unit.crew':'','unit.rate':'fish/s','unit.knot':'kn','unit.km':'km','unit.m':'m','unit.none':'none',
@@ -752,13 +752,15 @@ function buildSea(){
 }
 
 /* ---------------- 強化定義 ---------------- */
+/* roll は「そのカードが何段ぶんか」。3択が出た時点で振って、カードに出す。
+   選んだ後ではなく選ぶ前に決まるので、引きの良し悪しが判断材料になる */
 const UPG=[
-  {id:'crew', max:99, lv:()=>S.up.crew, apply:()=>{S.up.crew+=3;}},
-  {id:'hull', max:5, lv:()=>S.up.hull, apply:()=>{S.up.hull=Math.min(5,S.up.hull+1);}},
-  {id:'rate', max:10, lv:()=>S.up.rate, apply:()=>{S.up.rate++;}},
-  {id:'engine', max:10, lv:()=>S.up.engine, apply:()=>{S.up.engine++;}},
-  {id:'sonar', max:6, lv:()=>S.up.sonar, apply:()=>{S.up.sonar++;}},
-  {id:'lure', max:8, lv:()=>S.up.lure, apply:()=>{S.up.lure++;}}
+  {id:'crew', max:99, lv:()=>S.up.crew, roll:()=>rint(1,3)},
+  {id:'hull', max:5, lv:()=>S.up.hull},
+  {id:'rate', max:10, lv:()=>S.up.rate},
+  {id:'engine', max:10, lv:()=>S.up.engine},
+  {id:'sonar', max:6, lv:()=>S.up.sonar},
+  {id:'lure', max:8, lv:()=>S.up.lure}
 ];
 const UPG_BY={}; UPG.forEach(u=>UPG_BY[u.id]=u);
 const ICONS={};
@@ -834,13 +836,15 @@ function valOf(id,u){
   if(!r.h) r.h=r.n;
   return r;
 }
-function nextUp(id){
+function nextUp(id,n){
+  n=n||1;
   const u=Object.assign({},S.up);
-  if(id==='crew') u.crew+=3;
-  else if(id==='hull') u.hull=Math.min(5,u.hull+1);
-  else u[id]++;
+  if(id==='crew') u.crew+=n;
+  else if(id==='hull') u.hull=Math.min(5,u.hull+n);
+  else u[id]=Math.min(UPG_BY[id].max, u[id]+n);
   return u;
 }
+function rollOf(u){ return u.roll?u.roll():1; }
 function loadBest(){ try{return parseInt(localStorage.getItem('ippon.best')||'0',10)||0;}catch(e){return 0;} }
 function saveBest(v){ try{localStorage.setItem('ippon.best',String(v));}catch(e){} }
 </script>
@@ -1104,7 +1108,7 @@ function rollChoices(){
   const pool=UPG.filter(u=>u.lv()<u.max), out=[];
   while(out.length<3 && pool.length) out.push(pool.splice(rint(0,pool.length-1),1)[0]);
   while(out.length<3) out.push(UPG_BY.crew);
-  return out;
+  return out.map(u=>({u, n:rollOf(u)}));
 }
 function levelUp(){
   S.prog-=S.need; S.level++;
@@ -1115,14 +1119,14 @@ function levelUp(){
   clearTimeout(levelUp._t);                      // 閃光を見せてからカードを開く
   levelUp._t=setTimeout(()=>{ if(S.mode==='levelup') showCards(); }, 340);
 }
-function applyUpgrade(u){ u.apply(); layoutCrew(); }
+function applyUpgrade(u,n){ Object.assign(S.up, nextUp(u.id,n||1)); layoutCrew(); }
 function openChest(){
   const n = Math.random()<.70?1:(Math.random()<.73?3:5);
   const got=[];
   for(let i=0;i<n;i++){
     const pool=UPG.filter(u=>u.lv()<u.max);
     const u=pool.length?pick(pool):UPG_BY.crew;
-    u.apply(); got.push(t('up.'+u.id+'.name'));
+    Object.assign(S.up, nextUp(u.id, rollOf(u))); got.push(t('up.'+u.id+'.name'));
   }
   layoutCrew(); bang('chest'); sfxChest();
   const counts={};
@@ -1614,15 +1618,16 @@ const cardsEl=document.getElementById('cards');
 const scrLevel=document.getElementById('levelup');
 function showCards(){
   cardsEl.innerHTML='';
-  S.choices.forEach((u,idx)=>{
+  S.choices.forEach((ch,idx)=>{
+    const u=ch.u, n=ch.n;
     const d=document.createElement('div'); d.className='card'; d.tabIndex=0;
-    const nu=nextUp(u.id), v0=valOf(u.id,S.up), v1=valOf(u.id,nu);
+    const nu=nextUp(u.id,n), v0=valOf(u.id,S.up), v1=valOf(u.id,nu);
     const no=document.createElement('div'); no.className='no'; no.textContent=idx+1;
     const c=document.createElement('canvas'); c.width=16;c.height=16;
     c.getContext('2d').drawImage(ICONS[u.id],0,0);
     const nm=document.createElement('div'); nm.className='nm'; nm.textContent=t('up.'+u.id+'.name');
     const lv=document.createElement('div'); lv.className='lv';
-    lv.textContent = u.id==='crew' ? t('pick.lvCrew') : t('pick.lv',{a:u.lv(),b:u.lv()+1});
+    lv.textContent = u.id==='crew' ? t('pick.lvCrew',{n}) : t('pick.lv',{a:u.lv(),b:u.lv()+n});
     const val=document.createElement('div'); val.className='val';
     val.innerHTML='<s>'+v0.h+'</s><em>→</em><b>'+v1.h+'</b>'+(v1.u?'<i>'+v1.u+'</i>':'');
     d.append(no,c,nm,lv,val);
@@ -1650,7 +1655,7 @@ function showCards(){
 }
 function choose(i){
   if(S.mode!=='levelup' || !scrLevel.classList.contains('on')) return;
-  applyUpgrade(S.choices[i]);
+  applyUpgrade(S.choices[i].u, S.choices[i].n);
   scrLevel.classList.remove('on');
   S.mode='play';
   sfxPick();
