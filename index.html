@@ -367,7 +367,7 @@ ja:{
  'up.hull.name':'船体','up.hull.short':'船体','up.hull.fl':'船が大きくなり、釣り座と漁獲範囲が広がる。',
  'up.rate.name':'釣具','up.rate.short':'釣具','up.rate.fl':'漁師ひとりあたりの釣り上げが速くなる。',
  'up.engine.name':'機関','up.engine.short':'機関','up.engine.fl':'船の移動速度が上がる。',
- 'up.sonar.name':'魚群探知機','up.sonar.short':'魚探','up.sonar.fl':'魚探に映る範囲が広がる。入れ食いの継続率の上限も上がる。',
+ 'up.sonar.name':'魚群探知機','up.sonar.short':'魚探','up.sonar.fl':'魚探に映る範囲が広がる。少ない釣果でも入れ食いが続きやすくなる。',
  'up.lure.name':'集魚装置','up.lure.short':'集魚','up.lure.fl':'魚群が船のほうへ寄ってくる。入れ食いが1回ぶん長くなる。',
  'pick.lvCrew':'漁師 +3人','pick.lv':'Lv{a} → Lv{b}',
  'pick.efCrew':'うち待機 {a}人　釣り座 {b}人','pick.efBerth':'釣り座 {b}人',
@@ -395,7 +395,7 @@ en:{
  'up.hull.name':'Hull','up.hull.short':'Hull','up.hull.fl':'A bigger boat: more berths and a wider catch area.',
  'up.rate.name':'Tackle','up.rate.short':'Tackle','up.rate.fl':'Each hand lands fish faster.',
  'up.engine.name':'Engine','up.engine.short':'Engine','up.engine.fl':'The boat moves faster.',
- 'up.sonar.name':'Sonar','up.sonar.short':'Sonar','up.sonar.fl':'The scope shows more sea, and raises the cap on staying on fire.',
+ 'up.sonar.name':'Sonar','up.sonar.short':'Sonar','up.sonar.fl':'The scope shows more sea, and keeps a run alive on a thinner haul.',
  'up.lure.name':'Chum Rig','up.lure.short':'Chum','up.lure.fl':'Schools drift toward the boat, and each run on fire lasts longer.',
  'pick.lvCrew':'+3 crew','pick.lv':'Lv{a} → Lv{b}',
  'pick.efCrew':'{a} standing by · {b} berths','pick.efBerth':'{b} berths',
@@ -791,8 +791,9 @@ const FV_MINFISH=45;                 // 竿の下にこれだけ魚がいない�
 const FV_SEC=10;                     // 1ラウンドの基本の長さ（秒）
 const FV_LURE_SEC=1.0;               // 集魚Lv1つあたりの延長
 const FV_CAP=0.70;                   // 継続率の上限。ここには届かせない
-const FV_SONAR_CAP=0.03;             // 魚探Lv1つあたり上限UP
 const FV_K=70;                       // 飽和の速さ。20本=17% 50本=36% 100本=53% 300本=69%
+const FV_SONAR_K=8;                  // 魚探Lv1つあたり曲線を立てる。上限ではなく傾きを触るので、
+                                     // 本数が出ないラウンドほど効く＝苦しいときに支える形になる
 const FV_FADE=1.6;                   // 残りこの秒数から縁が引きはじめる
 /* 継続率はラウンド中に釣った「本数そのもの」の飽和曲線。割合ではなく絶対数なので、
    序盤は本数が出ず自然に繋がらない／終盤は数百本でほぼ上限、という形が時間補正なしで出る */
@@ -1074,10 +1075,10 @@ function feverOn(){
   clearTimeout(feverOn._t);
   feverOn._t=setTimeout(()=>elFvBig.classList.remove('go'),1150);
 }
-function fvCap(){ return FV_CAP + (S.up.sonar-1)*FV_SONAR_CAP; }   // 魚探で天井が上がる
-function fvSec(){ return FV_SEC + (S.up.lure-1)*FV_LURE_SEC; }     // 集魚で1回が長くなる
+function fvK(){ return Math.max(20, FV_K-(S.up.sonar-1)*FV_SONAR_K); }   // 魚探で曲線が立つ
+function fvSec(){ return FV_SEC + (S.up.lure-1)*FV_LURE_SEC; }          // 集魚で1回が長くなる
 function fvOdds(){                               // 釣った本数だけで決まる。割合は見ない
-  return fvCap()*(1-Math.exp(-S.fvCaught/FV_K));
+  return FV_CAP*(1-Math.exp(-S.fvCaught/fvK()));
 }
 function updateFever(dt){
   if(S.fvLock>0) S.fvLock-=dt;
