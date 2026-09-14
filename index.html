@@ -1105,9 +1105,13 @@ function bang(kind){                             // 決定的な瞬間の閃光�
 
 /* ================= 強化 ================= */
 function rollChoices(){
-  const pool=UPG.filter(u=>u.lv()<u.max), out=[];
+  // 漁師は必ず1枠。「出るかどうか」と「何人か」で不運が二重になるのを避ける。
+  // 出目が小さい回は、そのまま他を取る理由になる
+  const out=[UPG_BY.crew];
+  const pool=UPG.filter(u=>u!==UPG_BY.crew && u.lv()<u.max);
   while(out.length<3 && pool.length) out.push(pool.splice(rint(0,pool.length-1),1)[0]);
   while(out.length<3) out.push(UPG_BY.crew);
+  for(let i=out.length-1;i>0;i--){ const j=rint(0,i); const t2=out[i]; out[i]=out[j]; out[j]=t2; }
   return out.map(u=>({u, n:rollOf(u)}));
 }
 function levelUp(){
