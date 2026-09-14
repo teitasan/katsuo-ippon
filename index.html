@@ -746,13 +746,11 @@ function buildSea(){
 }
 
 /* ---------------- 強化定義 ---------------- */
-/* n は「そのカードが何段ぶんか」。漁師は +1/+2/+3 を別々の札としてプールに入れる。
-   出やすさ（8枚中3枚＝82%）と人数が同じ1つの仕組みから出るうえ、
-   +1と+3が同時に並べばそれ自体が選択になる */
+/* n は「そのカードが何段ぶんか」、w は引かれやすさ。
+   漁師は人数を固定（+2）にして比べるものを作らず、重みだけ上げて
+   「引けない回」を減らす。出目にすると3択のたびに比較が要るのでやらない */
 const UPG=[
-  {id:'crew', max:99, lv:()=>S.up.crew, n:1},
-  {id:'crew', max:99, lv:()=>S.up.crew, n:2},
-  {id:'crew', max:99, lv:()=>S.up.crew, n:3},
+  {id:'crew', max:99, lv:()=>S.up.crew, n:2, w:3},
   {id:'hull', max:5, lv:()=>S.up.hull},
   {id:'rate', max:10, lv:()=>S.up.rate},
   {id:'engine', max:10, lv:()=>S.up.engine},
@@ -1103,10 +1101,16 @@ function bang(kind){                             // 決定的な瞬間の閃光�
 
 /* ================= 強化 ================= */
 function rollChoices(){
-  // 8枚から3枚。漁師が3枚あるので自然に出やすく、引いた札がそのまま人数になる
   const pool=UPG.filter(u=>u.lv()<u.max), out=[];
-  while(out.length<3 && pool.length) out.push(pool.splice(rint(0,pool.length-1),1)[0]);
+  while(out.length<3 && pool.length){           // 重み付きで3枚。漁師だけ重い
+    let tot=0; for(const p of pool) tot+=(p.w||1);
+    let r=Math.random()*tot, k=0;
+    while(k<pool.length-1 && (r-=(pool[k].w||1))>0) k++;
+    out.push(pool.splice(k,1)[0]);
+  }
   while(out.length<3) out.push(UPG_BY.crew);
+  // 重い札ほど先に引かれるので並びだけ均す（漁師が毎回1枚目に来ないように）
+  for(let i=out.length-1;i>0;i--){ const j=rint(0,i), t2=out[i]; out[i]=out[j]; out[j]=t2; }
   return out.map(u=>({u, n:rollOf(u)}));
 }
 function levelUp(){
