@@ -125,13 +125,8 @@
     box-shadow:0 .5em 1.5em -.4em rgba(224,51,44,.95);
     transition:opacity .14s ease, transform .16s cubic-bezier(.2,1.5,.4,1)}
   .fvbadge.on{opacity:1; transform:translate(-50%,0) scale(1)}
-  .fvbadge.sure{border-color:#ffe6a8; background:linear-gradient(180deg,#f7c245,#c98a12)}
-  .fvbadge.sure b{color:#3a1c06}
-  .fvbadge.sure em{color:#5a2f08}
-  .fvbadge.sure i{color:#3a1c06; font-weight:700}
   .fvbadge b{font-size:.92em; font-weight:700; letter-spacing:.26em; color:#fff}
   .fvbadge em{font-style:normal; font-size:.82em; font-weight:700; color:#ffd0a0; letter-spacing:.04em}
-  .fvbadge i{font-style:normal; font-size:1.1em; font-weight:700; color:#ffe6a8}
   /* 発動の瞬間に大きく落ちる字 */
   .fvbig{position:absolute; left:50%; top:29%; z-index:3; pointer-events:none; white-space:nowrap;
     opacity:0; transform:translate(-50%,-50%) scale(3.2);
@@ -292,7 +287,7 @@
         <canvas id="radar" width="340" height="340"></canvas>
       </div>
 
-      <div class="fvbadge" id="fvbadge"><b id="fvlabel">入れ食い</b><em class="num" id="fvround">1連</em><i class="num" id="fvchain"></i></div>
+      <div class="fvbadge" id="fvbadge"><b id="fvlabel">入れ食い</b><em class="num" id="fvround">1連</em></div>
       <div class="fvbig disp" id="fvbig">入れ食い</div>
 
       <div class="toast" id="toast"><div class="hd">宝箱</div><div id="toastitems"></div></div>
@@ -355,7 +350,7 @@ ja:{
  'title.h1a':'カツオ','title.h1b':'一本釣り','title.sub':'',
  'title.tap':'動かして出港','title.best':'自己ベスト {n}本',
  'hud.time':'ノコリ','hud.catch':'ギョカク','hud.catchUnit':'本','hud.next':'NEXT',
- 'hud.fever':'入れ食い','hud.round':'{n}連','hud.sure':'確定',
+ 'hud.fever':'入れ食い','hud.round':'{n}連',
  'pick.eyebrow':'タイリョウ','pick.head':'どれを積む？',
  'up.crew.name':'漁師','up.crew.short':'漁師','up.crew.fl':'漁師が3人増える。釣り座が空いていなければ待機に回る。',
  'up.hull.name':'船体','up.hull.short':'船体','up.hull.fl':'船が大きくなり、釣り座と漁獲範囲が広がる。',
@@ -383,7 +378,7 @@ en:{
  'title.h1a':'FISH','title.h1b':'ON!','title.sub':'~Pole & Line',
  'title.tap':'Move to cast off','title.best':'BEST {n}',
  'hud.time':'TIME','hud.catch':'CATCH','hud.catchUnit':'','hud.next':'NEXT',
- 'hud.fever':'ON FIRE','hud.round':'CHAIN {n}','hud.sure':'LOCKED',
+ 'hud.fever':'ON FIRE','hud.round':'CHAIN {n}',
  'pick.eyebrow':'BIG CATCH','pick.head':'What comes aboard?',
  'up.crew.name':'Crew','up.crew.short':'Crew','up.crew.fl':'Three more hands. They wait ashore if no berth is free.',
  'up.hull.name':'Hull','up.hull.short':'Hull','up.hull.fl':'A bigger boat: more berths and a wider catch area.',
@@ -768,30 +763,22 @@ const S={
   up:{crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1},
   seatX:[], seats:0, chestT:26, sprayAcc:0, start:{crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1}, totalFish:0, choices:[], caught:0,
   rt:0, shake:0, freeze:0, pop:0, pops:[], burst:null, inRange:0,
-  fvT:0, fvCaught:0, fvSure:false, fvRound:0, fvLock:0, fvPulse:0, fever:false, chain:0
+  fvT:0, fvRound:0, fvLock:0, fvPulse:0, fever:false, chain:0
 };
 const TONS=[9,19,49,119,199];
-/* 入れ食い＝大群に当たったとき。
-   この海は「群れの中か外か」の二値で、中に居る時間が全体の8割ある。
-   釣れ高でも連続時間でも峰が立たない（どちらで判定しても常時発動になる）ので、
-   状態検出はやめて「その時間帯の湧き量の上限に近い群れに入った」ことを引き金にする。
-   魚探で大きい反応を選ぶ意味がここで出る。 */
-/* 入れ食いはパチンコ式。1本釣るごとに突入抽選、1ラウンドごとに継続抽選。
-   大きい群れほど抽選回数が増えるので、狙いに行く意味は確率として残る。 */
-const FV_ENTRY=0.006;                // 1本あたりの突入確率
-const FV_SURE=0.0015;                // 入れ食い中、1本あたりの「確定」抽選。引くと次ラウンドが無条件で始まる。
-                                     // 率は突入より低いが、1ラウンドで100本以上抜くので出方はこちらが遥かに上
-const FV_LOCK=4;                     // 終了後この秒数は突入抽選をしない
+/* 入れ食いは抽選ひとつだけ。1本釣るごとに回して、当たったら始まる。
+   入れ食い中も同じ抽選を回し続け、時間が切れる前にもう一度当てたら1連増えて時間が満タンに戻る。
+   当てられずに切れたら終わり。継続率という数字はどこにも無い。
+   「たくさん釣れている人ほど連チャンしやすい」は計算式ではなく、
+   釣った本数だけ抽選回数が増えることから勝手に出てくる：
+     20本 11%  50本 26%  100本 45%  200本 70%  300本 83%（＝1-(1-0.006)^n） */
+const FV_ENTRY=0.006;                // 1本あたりの当たり。突入も継続もこれ1つ
+const FV_SONAR_ODDS=0.18;            // 魚探Lv1つあたり当たりを何割上げるか（Lv6で約1.9倍）
+const FV_LOCK=4;                     // 終了後この秒数は抽選をしない
 const FV_MINFISH=45;                 // 竿の下にこれだけ魚がいないと突入しない（群れの尻尾で当たらないように）
-const FV_SEC=10;                     // 1ラウンドの基本の長さ（秒）
+const FV_SEC=10;                     // 当たってから切れるまでの秒数
 const FV_LURE_SEC=1.0;               // 集魚Lv1つあたりの延長
-const FV_CAP=0.70;                   // 継続率の上限。ここには届かせない
-const FV_K=70;                       // 飽和の速さ。20本=17% 50本=36% 100本=53% 300本=69%
-const FV_SONAR_K=8;                  // 魚探Lv1つあたり曲線を立てる。上限ではなく傾きを触るので、
-                                     // 本数が出ないラウンドほど効く＝苦しいときに支える形になる
 const FV_FADE=1.6;                   // 残りこの秒数から縁が引きはじめる
-/* 継続率はラウンド中に釣った「本数そのもの」の飽和曲線。割合ではなく絶対数なので、
-   序盤は本数が出ず自然に繋がらない／終盤は数百本でほぼ上限、という形が時間補正なしで出る */
 const FV_RATE=1.1;                   // 入れ食い中の釣り速度の倍率。ここだけがスコアに効く
 const FV_STOP=0.12;                  // 突入の瞬間に世界を止める秒数
 let REDUCE=false;
@@ -1051,42 +1038,36 @@ function doCatch(fm,o){
   S.rings.push({x:o.f.wx, y:o.f.wy, t:0});
   S.pop=1;                                       // ギョカクの数字を弾ませる
   if(S.fever){
-    S.chain++; S.fvCaught++;                     // このラウンドで何本抜けたかが継続率になる
-    if(!S.fvSure && Math.random()<FV_SURE){      // 確定。引けば継続率に関わらず次がある
-      S.fvSure=true; S.fvPulse=1; bang('cont'); sfxSure();
-    }
+    S.chain++;
+    if(Math.random()<fvEntry()) feverHit();       // 入れ食い中の当たり。1連増えて時間が戻る
   }
-  else if(S.fvLock<=0 && S.inRange>=FV_MINFISH && Math.random()<FV_ENTRY) feverOn();   // 1本ごとの突入抽選
+  else if(S.fvLock<=0 && S.inRange>=FV_MINFISH && Math.random()<fvEntry()) feverOn();  // 突入も同じ抽選
   sfxCatch();
   if(S.prog>=S.need) levelUp();
 }
 
 /* ================= 入れ食い ================= */
 function feverOn(){
-  S.fever=true; S.fvT=fvSec(); S.fvCaught=0; S.fvSure=false; S.fvRound=1; S.fvPulse=1; S.chain=1;
+  S.fever=true; S.fvT=fvSec(); S.fvRound=1; S.fvPulse=1; S.chain=1;
   S.freeze=FV_STOP;                              // 一瞬だけ世界を止める
   sfxFever(); bang('fever');
   elFvBig.classList.remove('go'); void elFvBig.offsetWidth; elFvBig.classList.add('go');
   clearTimeout(feverOn._t);
   feverOn._t=setTimeout(()=>elFvBig.classList.remove('go'),1150);
 }
-function fvK(){ return Math.max(20, FV_K-(S.up.sonar-1)*FV_SONAR_K); }   // 魚探で曲線が立つ
+function fvEntry(){ return FV_ENTRY*(1+FV_SONAR_ODDS*(S.up.sonar-1)); }  // 魚探で当たりやすくなる
 function fvSec(){ return FV_SEC + (S.up.lure-1)*FV_LURE_SEC; }          // 集魚で1回が長くなる
-function fvOdds(){                               // 釣った本数だけで決まる。割合は見ない
-  return FV_CAP*(1-Math.exp(-S.fvCaught/fvK()));
+function feverHit(){                             // 期間中にもう一度当てた
+  S.fvRound++; S.fvT=fvSec(); S.fvPulse=1;
+  bang('cont'); sfxSure();
 }
 function updateFever(dt){
   if(S.fvLock>0) S.fvLock-=dt;
   if(!S.fever) return;
   S.fvT-=dt;
   if(S.fvT>0) return;
-  if(S.fvSure || Math.random()<fvOdds()){        // 確定を引いていれば抽選を飛ばす
-    S.fvRound++; S.fvCaught=0; S.fvSure=false; S.fvT=fvSec(); S.fvPulse=1;
-    bang('cont'); sfxCont();
-  }else{
-    S.fever=false; S.fvT=0; S.fvLock=FV_LOCK;   // 終わりは無音。通常に戻るだけ
-    elFvBadge.style.transform='';
-  }
+  S.fever=false; S.fvT=0; S.fvLock=FV_LOCK;      // 終わりは無音。通常に戻るだけ
+  elFvBadge.style.transform='';
 }
 function bang(kind){                             // 決定的な瞬間の閃光と揺れ
   const big=kind==='fever';
@@ -1568,7 +1549,7 @@ function bump(u,n){                     // デバッグ用：強化を直接増�
 let lastTxt={};
 function setTxt(el,v){ if(lastTxt[el.id]!==v){ lastTxt[el.id]=v; el.textContent=v; } }
 const elCatch=document.querySelector('.catch'), elFever=document.getElementById('fever');
-const elFvBadge=document.getElementById('fvbadge'), elFvChain=document.getElementById('fvchain');
+const elFvBadge=document.getElementById('fvbadge');
 const elFvBig=document.getElementById('fvbig');
 const elFvRound=document.getElementById('fvround');
 function updateHUD(){
@@ -1583,8 +1564,6 @@ function updateHUD(){
   elFvBadge.classList.toggle('on', S.fever && playing);   // 3択の見出しと重なるので伏せる
   if(S.fever){
     setTxt(elFvRound, t('hud.round',{n:S.fvRound}));
-    setTxt(elFvChain, S.fvSure ? t('hud.sure') : '');
-    elFvBadge.classList.toggle('sure', S.fvSure);
     elFvBadge.style.transform='translate(-50%,0) scale('+(1+0.10*S.fvPulse).toFixed(3)+')';
   }
   setTxt(elTime, rem>10 ? Math.floor(rem/60)+':'+String(Math.floor(rem%60)).padStart(2,'0') : rem.toFixed(1));
@@ -1658,7 +1637,7 @@ function reset(){
   S.t=0; S.started=false; S.score=0; S.level=1; S.need=9; S.prog=0; S.totalFish=0; S.chestT=20;
   S.schools.length=0; S.chests.length=0; S.crew.length=0;
   S.parts.length=0; S.wake.length=0; S.rings.length=0; S.spray.length=0; S.flash.length=0; S.pops.length=0;
-  S.fvT=0; S.fvCaught=0; S.fvSure=false; S.fvRound=0; S.fvLock=0; S.fvPulse=0; S.fever=false; S.chain=0; S.inRange=0; S.pop=0; S.shake=0; S.freeze=0; S.burst=null;
+  S.fvT=0; S.fvRound=0; S.fvLock=0; S.fvPulse=0; S.fever=false; S.chain=0; S.inRange=0; S.pop=0; S.shake=0; S.freeze=0; S.burst=null;
   S.up={crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1};
   S.start={crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1};
   Object.assign(S.boat,{x:0,y:0,vx:0,vy:0,hd:0,sp:0,face:1,bob:0});
@@ -1794,13 +1773,9 @@ function sfxCatch(){
   tone(rnd(640,1020)*up,.07,'triangle',.055,1.7);
   if(Math.random()<.5) splash(.03);
 }
-function sfxSure(){                                // 確定を引いた合図
+function sfxSure(){                                // 期間中にもう一度当てた合図
   [523,784,1046,1568].forEach((f,i)=>tone(f,.26,'square',.08,1.3,i*.055));
   tone(131,.5,'sawtooth',.10,.65);
-}
-function sfxCont(){                                // 継続した合図。1段上がる
-  tone(392,.16,'square',.07,1.5);
-  tone(784,.2,'triangle',.07,1.4,.05);
 }
 function sfxFever(){
   tone(98,.55,'sawtooth',.13,.62);                // 腹に来る低音を1発
@@ -1825,7 +1800,7 @@ const dbgFever=document.getElementById('dbgFever');
 dbgFever.addEventListener('click',e=>{             // 左：発動／継続を1段  右：終了
   e.preventDefault(); e.stopPropagation();
   if(!S.fever) feverOn();
-  else { S.fvRound++; S.fvCaught=0; S.fvSure=false; S.fvT=fvSec(); S.fvPulse=1; bang('cont'); sfxCont(); }
+  else feverHit();
 });
 dbgFever.addEventListener('contextmenu',e=>{
   e.preventDefault(); e.stopPropagation();
@@ -1894,7 +1869,6 @@ function applyLang(){
   set('lvlabel','hud.next');
   set('fvlabel','hud.fever'); set('fvbig','hud.fever');
   elFvRound.textContent=t('hud.round',{n:Math.max(1,S.fvRound)});
-  elFvBadge.querySelector('em').textContent='\u00d7'+FV_RATE.toFixed(1);
   set('lblPickEyebrow','pick.eyebrow'); set('lblPickHead','pick.head'); set('lblResHead','res.head');
   document.querySelectorAll('#stats .chip b[data-k]').forEach(b=>{ b.textContent=t(b.dataset.k); });
   document.getElementById('titlebest').textContent = S.best ? t('title.best',{n:fmt(S.best)}) : '';
