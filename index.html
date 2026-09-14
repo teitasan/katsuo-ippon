@@ -357,12 +357,12 @@ ja:{
  'hud.time':'ノコリ','hud.catch':'ギョカク','hud.catchUnit':'本','hud.next':'NEXT',
  'hud.fever':'入れ食い','hud.round':'{n}連','hud.sure':'確定',
  'pick.eyebrow':'タイリョウ','pick.head':'どれを積む？',
- 'up.crew.name':'漁師','up.crew.short':'漁師','up.crew.fl':'漁師が3人増える。釣り座が空いていなければ待機に回る。',
+ 'up.crew.name':'漁師','up.crew.short':'漁師','up.crew.fl':'漁師が増える。釣り座が空いていなければ待機に回る。',
  'up.hull.name':'船体','up.hull.short':'船体','up.hull.fl':'船が大きくなり、釣り座と漁獲範囲が広がる。',
  'up.rate.name':'釣具','up.rate.short':'釣具','up.rate.fl':'漁師ひとりあたりの釣り上げが速くなる。',
  'up.engine.name':'機関','up.engine.short':'機関','up.engine.fl':'船の移動速度が上がる。',
  'up.sonar.name':'魚群探知機','up.sonar.short':'魚探','up.sonar.fl':'魚探に映る範囲が広がる。少ない釣果でも入れ食いが続きやすくなる。',
- 'up.lure.name':'集魚装置','up.lure.short':'集魚','up.lure.fl':'魚群が船のほうへ寄ってくる。入れ食いが1回ぶん長くなる。',
+ 'up.lure.name':'集魚装置','up.lure.short':'集魚','up.lure.fl':'魚群が船に押し寄せて居座るようになる。入れ食いも1回ぶん長くなる。',
  'pick.lvCrew':'漁師 +{n}人','pick.lv':'Lv{a} → Lv{b}',
  'pick.efCrew':'うち待機 {a}人　釣り座 {b}人','pick.efBerth':'釣り座 {b}人',
  'pick.efHull':'{a}t → {b}t船',
@@ -385,12 +385,12 @@ en:{
  'hud.time':'TIME','hud.catch':'CATCH','hud.catchUnit':'','hud.next':'NEXT',
  'hud.fever':'ON FIRE','hud.round':'CHAIN {n}','hud.sure':'LOCKED',
  'pick.eyebrow':'BIG CATCH','pick.head':'What comes aboard?',
- 'up.crew.name':'Crew','up.crew.short':'Crew','up.crew.fl':'Three more hands. They wait ashore if no berth is free.',
+ 'up.crew.name':'Crew','up.crew.short':'Crew','up.crew.fl':'More hands aboard. They wait ashore if no berth is free.',
  'up.hull.name':'Hull','up.hull.short':'Hull','up.hull.fl':'A bigger boat: more berths and a wider catch area.',
  'up.rate.name':'Tackle','up.rate.short':'Tackle','up.rate.fl':'Each hand lands fish faster.',
  'up.engine.name':'Engine','up.engine.short':'Engine','up.engine.fl':'The boat moves faster.',
  'up.sonar.name':'Sonar','up.sonar.short':'Sonar','up.sonar.fl':'The scope shows more sea, and keeps a run alive on a thinner haul.',
- 'up.lure.name':'Chum Rig','up.lure.short':'Chum','up.lure.fl':'Schools drift toward the boat, and each run on fire lasts longer.',
+ 'up.lure.name':'Chum Rig','up.lure.short':'Chum','up.lure.fl':'Schools pile onto the boat and stay there. Each run on fire lasts longer too.',
  'pick.lvCrew':'+{n} crew','pick.lv':'Lv{a} → Lv{b}',
  'pick.efCrew':'{a} standing by · {b} berths','pick.efBerth':'{b} berths',
  'pick.efHull':'{a}t → {b}t boat',
@@ -805,7 +805,7 @@ const stat = {
   turn:(u)=>{u=u||S.up; return 5.0*Math.pow(1.10,u.engine)*(1-0.03*(u.hull-1));},
   sonar:(u)=>250*Math.pow(1.32,(u||S.up).sonar-1),
   lureR:(u)=>{u=u||S.up; return u.lure===0?0:150+70*u.lure;},
-  lureF:()=>S.up.lure*3.4,
+  lureF:()=>(S.up.lure-1)*9,    // 初期Lv1は0。上げた分だけ群れ自身の進行方向を押し切る
   seats:(u)=>boats[(u||S.up).hull-1].seatX.length*2,
   power:(u)=>{u=u||S.up; return Math.min(u.crew,stat.seats(u))*stat.rate(u);},
   rx:()=>HULL_LEN[S.up.hull-1]/2+24,
@@ -871,7 +871,11 @@ function makeGulls(n0){
 }
 const PSTEP=4, PN=104;            // 先頭の軌跡を4px刻みで416pxぶん保持する
 /* 表に出さない副効果の係数（1レベルあたり） */
-const TUNE={ lureSchoolSize:0.12, sonarChestRate:0.15 };
+const TUNE={ lureSchoolSize:0.12, sonarChestRate:0.15,
+  lureSpeed:0.22,      // 集魚Lv1つあたり、寄ってくる群れの足がどれだけ速くなるか
+  lureHold:0.40,       // 船べり（70px以内）では足を落として溜まらせる
+  lureCalm:0.22,       // 集魚Lv1つあたり逃走をどれだけ抑えるか。Lv5で逃げなくなる
+  lureTurn:0.30 };     // 集魚Lv1つあたり、寄るときの角速度の上限をどれだけ上げるか
 function makeSchool(x,y,count){
   const rx=schoolRadius(count), ry=rx*0.6;
   const ang=rnd(0,TAU), ca=Math.cos(ang), sa=Math.sin(ang);
@@ -935,15 +939,20 @@ function updateSchools(dt){
     s.turn=clamp(s.turn+rnd(-1,1)*dt*2.6,-0.7,0.7);
     s.ang+=s.turn*dt;
     s.pulse+=dt*1.7;
-    const sp=s.sp*(1+0.18*Math.sin(s.pulse));
+    let sp=s.sp*(1+0.18*Math.sin(s.pulse));
     let tx=Math.cos(s.ang), ty=Math.sin(s.ang), react=0;
     const dx=B.x-s.cx, dy=B.y-s.cy, di=Math.hypot(dx,dy)||1;
-    if(lr>0 && di<lr){                          // 集魚：船の方へ舵を切らせる
-      const w=lf/12*(1-di/lr);
-      tx+=dx/di*w; ty+=dy/di*w; react=Math.max(react,Math.min(1,w/1.4));
+    if(lr>0 && di<lr){                          // 集魚：船の方へ舵を切らせ、足も速くする
+      const pull=1-di/lr, w=lf/12*pull;
+      tx+=dx/di*w; ty+=dy/di*w;
+      // 角速度の上限も上げないと、向きを変えるだけで数秒かかって届かない
+      react=Math.max(react, Math.min(1+(S.up.lure-1)*TUNE.lureTurn, w/1.4));
+      sp*=1+TUNE.lureSpeed*(S.up.lure-1)*pull;  // 舵だけだと遅すぎて届かない
+      if(di<70) sp*=TUNE.lureHold;              // 船べりでは止まって溜まる
     }
-    if(di<78){                                  // 逃走：少しだけ進路を変える程度に留める
-      const w=1.3*(1-di/78);
+    const calm=Math.max(0, 1-TUNE.lureCalm*(S.up.lure-1));
+    if(di<78 && calm>0){                        // 逃走。集魚が育つほど逃げなくなる
+      const w=1.3*(1-di/78)*calm;
       tx-=dx/di*w; ty-=dy/di*w; react=Math.max(react,Math.min(0.35,w));  // 角速度は上げすぎない（周回防止）
     }
     let dh=Math.atan2(ty,tx)-s.hd;
