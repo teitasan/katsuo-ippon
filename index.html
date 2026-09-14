@@ -752,10 +752,13 @@ function buildSea(){
 }
 
 /* ---------------- 強化定義 ---------------- */
-/* roll は「そのカードが何段ぶんか」。3択が出た時点で振って、カードに出す。
-   選んだ後ではなく選ぶ前に決まるので、引きの良し悪しが判断材料になる */
+/* n は「そのカードが何段ぶんか」。漁師は +1/+2/+3 を別々の札としてプールに入れる。
+   出やすさ（8枚中3枚＝82%）と人数が同じ1つの仕組みから出るうえ、
+   +1と+3が同時に並べばそれ自体が選択になる */
 const UPG=[
-  {id:'crew', max:99, lv:()=>S.up.crew, roll:()=>rint(1,3), w:3},   // 出やすさ。他は1
+  {id:'crew', max:99, lv:()=>S.up.crew, n:1},
+  {id:'crew', max:99, lv:()=>S.up.crew, n:2},
+  {id:'crew', max:99, lv:()=>S.up.crew, n:3},
   {id:'hull', max:5, lv:()=>S.up.hull},
   {id:'rate', max:10, lv:()=>S.up.rate},
   {id:'engine', max:10, lv:()=>S.up.engine},
@@ -844,7 +847,7 @@ function nextUp(id,n){
   else u[id]=Math.min(UPG_BY[id].max, u[id]+n);
   return u;
 }
-function rollOf(u){ return u.roll?u.roll():1; }
+function rollOf(u){ return u.n||1; }
 function loadBest(){ try{return parseInt(localStorage.getItem('ippon.best')||'0',10)||0;}catch(e){return 0;} }
 function saveBest(v){ try{localStorage.setItem('ippon.best',String(v));}catch(e){} }
 </script>
@@ -1105,18 +1108,10 @@ function bang(kind){                             // 決定的な瞬間の閃光�
 
 /* ================= 強化 ================= */
 function rollChoices(){
-  // 重み付きで3枚引く。漁師だけ重い（w=3）ので、引けない回が5割から2割弱に減る。
-  // 「出るかどうか」と「何人か」で不運が二重になるのを薄めるだけで、抽選のままにしておく
+  // 8枚から3枚。漁師が3枚あるので自然に出やすく、引いた札がそのまま人数になる
   const pool=UPG.filter(u=>u.lv()<u.max), out=[];
-  while(out.length<3 && pool.length){
-    let tot=0; for(const p of pool) tot+=(p.w||1);
-    let r=Math.random()*tot, k=0;
-    while(k<pool.length-1 && (r-=(pool[k].w||1))>0) k++;
-    out.push(pool.splice(k,1)[0]);
-  }
+  while(out.length<3 && pool.length) out.push(pool.splice(rint(0,pool.length-1),1)[0]);
   while(out.length<3) out.push(UPG_BY.crew);
-  // 重い札ほど先に引かれるので、並びだけ均す（漁師が毎回1枚目に来ないように）
-  for(let i=out.length-1;i>0;i--){ const j=rint(0,i), t2=out[i]; out[i]=out[j]; out[j]=t2; }
   return out.map(u=>({u, n:rollOf(u)}));
 }
 function levelUp(){
