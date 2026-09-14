@@ -129,6 +129,11 @@
   .fvbar{position:absolute; left:0; top:0; bottom:0; width:100%;
     background:linear-gradient(180deg,#e0332c,#a81d18)}
   .fvbar.low{background:linear-gradient(180deg,#ff9a3c,#d1830d)}
+  .fvbadge.sure{border-color:#ffe6a8}
+  .fvbadge.sure .fvbar{background:linear-gradient(180deg,#f7c245,#c98a12)}
+  .fvbadge.sure b{color:#3a1c06}
+  .fvbadge.sure em{color:#5a2f08}
+  .fvbadge.sure i{color:#3a1c06; font-weight:700}
   .fvbadge b,.fvbadge em,.fvbadge i{position:relative; z-index:1}
   .fvbadge b{font-size:.92em; font-weight:700; letter-spacing:.26em; color:#fff}
   .fvbadge em{font-style:normal; font-size:.82em; font-weight:700; color:#ffd0a0; letter-spacing:.04em}
@@ -356,7 +361,7 @@ ja:{
  'title.h1a':'カツオ','title.h1b':'一本釣り','title.sub':'',
  'title.tap':'動かして出港','title.best':'自己ベスト {n}本',
  'hud.time':'ノコリ','hud.catch':'ギョカク','hud.catchUnit':'本','hud.next':'NEXT',
- 'hud.fever':'入れ食い','hud.round':'{n}連',
+ 'hud.fever':'入れ食い','hud.round':'{n}連','hud.sure':'確定',
  'pick.eyebrow':'タイリョウ','pick.head':'どれを積む？',
  'up.crew.name':'漁師','up.crew.short':'漁師','up.crew.fl':'漁師が3人増える。釣り座が空いていなければ待機に回る。',
  'up.hull.name':'船体','up.hull.short':'船体','up.hull.fl':'船が大きくなり、釣り座と漁獲範囲が広がる。',
@@ -384,7 +389,7 @@ en:{
  'title.h1a':'FISH','title.h1b':'ON!','title.sub':'~Pole & Line',
  'title.tap':'Move to cast off','title.best':'BEST {n}',
  'hud.time':'TIME','hud.catch':'CATCH','hud.catchUnit':'','hud.next':'NEXT',
- 'hud.fever':'ON FIRE','hud.round':'CHAIN {n}',
+ 'hud.fever':'ON FIRE','hud.round':'CHAIN {n}','hud.sure':'LOCKED',
  'pick.eyebrow':'BIG CATCH','pick.head':'What comes aboard?',
  'up.crew.name':'Crew','up.crew.short':'Crew','up.crew.fl':'Three more hands. They wait ashore if no berth is free.',
  'up.hull.name':'Hull','up.hull.short':'Hull','up.hull.fl':'A bigger boat: more berths and a wider catch area.',
@@ -768,7 +773,7 @@ const S={
   up:{crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1},
   seatX:[], seats:0, chestT:26, sprayAcc:0, start:{crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1}, totalFish:0, choices:[], caught:0,
   rt:0, shake:0, freeze:0, pop:0, pops:[], burst:null, inRange:0,
-  fvT:0, fvCaught:0, fvRound:0, fvLock:0, fvPulse:0, fever:false, chain:0
+  fvT:0, fvCaught:0, fvSure:false, fvRound:0, fvLock:0, fvPulse:0, fever:false, chain:0
 };
 const TONS=[9,19,49,119,199];
 /* 入れ食い＝大群に当たったとき。
@@ -779,6 +784,8 @@ const TONS=[9,19,49,119,199];
 /* 入れ食いはパチンコ式。1本釣るごとに突入抽選、1ラウンドごとに継続抽選。
    大きい群れほど抽選回数が増えるので、狙いに行く意味は確率として残る。 */
 const FV_ENTRY=0.006;                // 1本あたりの突入確率
+const FV_SURE=0.0015;                // 入れ食い中、1本あたりの「確定」抽選。引くと次ラウンドが無条件で始まる。
+                                     // 率は突入より低いが、1ラウンドで100本以上抜くので出方はこちらが遥かに上
 const FV_LOCK=4;                     // 終了後この秒数は突入抽選をしない
 const FV_MINFISH=45;                 // 竿の下にこれだけ魚がいないと突入しない（群れの尻尾で当たらないように）
 const FV_SEC=5.0;                    // 1ラウンドの長さ
@@ -1044,6 +1051,9 @@ function doCatch(fm,o){
   S.rings.push({x:o.f.wx, y:o.f.wy, t:0});
   S.pop=1;                                       // ギョカクの数字を弾ませる
   S.fvCaught++;                                  // このラウンドで何本抜けたか
+  if(!S.fvSure && Math.random()<FV_SURE){        // 確定。ここを引けば継続率に関わらず次がある
+    S.fvSure=true; S.fvPulse=1; bang('cont'); sfxSure();
+  }
   if(S.fever) S.chain++;
   else if(S.fvLock<=0 && S.inRange>=FV_MINFISH && Math.random()<FV_ENTRY) feverOn();   // 1本ごとの突入抽選
   sfxCatch();
@@ -1052,7 +1062,7 @@ function doCatch(fm,o){
 
 /* ================= 入れ食い ================= */
 function feverOn(){
-  S.fever=true; S.fvT=FV_SEC; S.fvCaught=0; S.fvRound=1; S.fvPulse=1; S.chain=1;
+  S.fever=true; S.fvT=FV_SEC; S.fvCaught=0; S.fvSure=false; S.fvRound=1; S.fvPulse=1; S.chain=1;
   S.freeze=FV_STOP;                              // 一瞬だけ世界を止める
   sfxFever(); bang('fever');
   elFvBig.classList.remove('go'); void elFvBig.offsetWidth; elFvBig.classList.add('go');
@@ -1068,8 +1078,8 @@ function updateFever(dt){
   if(!S.fever) return;
   S.fvT-=dt;
   if(S.fvT>0) return;
-  if(Math.random()<fvOdds()){                    // ラウンド末の継続抽選。ここが山場
-    S.fvRound++; S.fvCaught=0; S.fvT=FV_SEC; S.fvPulse=1;
+  if(S.fvSure || Math.random()<fvOdds()){        // 確定を引いていれば抽選を飛ばす
+    S.fvRound++; S.fvCaught=0; S.fvSure=false; S.fvT=FV_SEC; S.fvPulse=1;
     bang('cont'); sfxCont();
   }else{
     S.fever=false; S.fvT=0; S.fvLock=FV_LOCK;   // 終わりは無音。通常に戻るだけ
@@ -1574,7 +1584,8 @@ function updateHUD(){
     elFvBar.style.width=(u*100).toFixed(1)+'%';
     elFvBar.classList.toggle('low', S.fvT<FV_FADE); // 継続抽選が近い
     setTxt(elFvRound, t('hud.round',{n:S.fvRound}));
-    setTxt(elFvChain, Math.round(fvOdds()*100)+'%');
+    setTxt(elFvChain, S.fvSure ? t('hud.sure') : Math.round(fvOdds()*100)+'%');
+    elFvBadge.classList.toggle('sure', S.fvSure);
     elFvBadge.style.transform='translate(-50%,0) scale('+(1+0.10*S.fvPulse).toFixed(3)+')';
   }
   setTxt(elTime, rem>10 ? Math.floor(rem/60)+':'+String(Math.floor(rem%60)).padStart(2,'0') : rem.toFixed(1));
@@ -1647,7 +1658,7 @@ function reset(){
   S.t=0; S.started=false; S.score=0; S.level=1; S.need=9; S.prog=0; S.totalFish=0; S.chestT=20;
   S.schools.length=0; S.chests.length=0; S.crew.length=0;
   S.parts.length=0; S.wake.length=0; S.rings.length=0; S.spray.length=0; S.flash.length=0; S.pops.length=0;
-  S.fvT=0; S.fvCaught=0; S.fvRound=0; S.fvLock=0; S.fvPulse=0; S.fever=false; S.chain=0; S.inRange=0; S.pop=0; S.shake=0; S.freeze=0; S.burst=null;
+  S.fvT=0; S.fvCaught=0; S.fvSure=false; S.fvRound=0; S.fvLock=0; S.fvPulse=0; S.fever=false; S.chain=0; S.inRange=0; S.pop=0; S.shake=0; S.freeze=0; S.burst=null;
   S.up={crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1};
   S.start={crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1};
   Object.assign(S.boat,{x:0,y:0,vx:0,vy:0,hd:0,sp:0,face:1,bob:0});
@@ -1781,6 +1792,10 @@ function sfxCatch(){
   const up=1+0.95*Math.min(1,S.chain/40);        // 連が伸びるほど高く
   tone(rnd(640,1020)*up,.07,'triangle',.055,1.7);
   if(Math.random()<.5) splash(.03);
+}
+function sfxSure(){                                // 確定を引いた合図
+  [523,784,1046,1568].forEach((f,i)=>tone(f,.26,'square',.08,1.3,i*.055));
+  tone(131,.5,'sawtooth',.10,.65);
 }
 function sfxCont(){                                // 継続した合図。1段上がる
   tone(392,.16,'square',.07,1.5);
