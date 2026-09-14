@@ -251,6 +251,9 @@
   #perf i{font-style:normal; color:var(--kelp)}
   #perf u{text-decoration:none; color:var(--dim)}
   #perf .hot{color:#ff8b6a}
+  .dbgbtn{margin-top:.35em; pointer-events:auto; padding:.3em .8em; font-size:.62em; letter-spacing:.14em;
+    color:var(--kelp); background:rgba(4,20,32,.85); border:1px solid var(--kelp); border-radius:2px}
+  .dbgbtn:hover{color:#0a1f2e; background:var(--kelp)}
   .mute{position:absolute; left:1em; top:4em; pointer-events:auto; width:2em; height:2em;
     display:grid; place-items:center; color:var(--dim); font-size:1em;
     border:1px solid var(--line); background:rgba(10,31,46,.7); border-radius:2px}
@@ -297,7 +300,8 @@
 
     <div class="fever" id="fever"></div>
     <button class="mute" id="mute" title="音">♪</button>
-    <div id="perfwrap"><div id="perf" hidden></div></div>
+    <div id="perfwrap"><div id="perf" hidden></div>
+      <button class="dbgbtn" id="dbgFever" hidden>入れ食い</button></div>
 
     <div class="prompt" id="prompt">
       <div class="pTop">
@@ -1331,12 +1335,13 @@ function drawBurst(){
   const u=b.t/b.dur;
   if(u>=1){ S.burst=null; return; }
   const gold=b.kind!=='lv';
-  if(b.kind==='cont'){ ctx.globalAlpha=(1-u)*.55; ctx.fillStyle='#ffe9b0'; ctx.fillRect(0,0,VW,VH); }
-  ctx.globalAlpha=(1-u)*(1-u)*(REDUCE?.16:.62);
+  // 継続は6秒ごとに来るので閃光は弱く。突入とレベルアップだけ強く光らせる
+  const peak = b.kind==='cont' ? .20 : .62;
+  ctx.globalAlpha=(1-u)*(1-u)*(REDUCE?.16:peak);
   ctx.fillStyle=gold?'#ffe9b0':'#ffffff';
   ctx.fillRect(0,0,VW,VH);
   const cx=VW/2, cy=VH/2+bobPx;
-  ctx.globalAlpha=(1-u)*.85;
+  ctx.globalAlpha=(1-u)*(b.kind==='cont'?.6:.85);
   ctx.fillStyle=gold?'#f2b32c':'#eaf3f4';
   const r0=14+u*150, len=30*(1-u);               // 放射線
   for(let i=0;i<16;i++){
@@ -1740,10 +1745,21 @@ muteBtn.addEventListener('click',()=>{ muted=!muted; muteBtn.textContent=muted?'
 
 /* ================= 負荷計測（Fキーで開閉） ================= */
 const elPerf=document.getElementById('perf');
+const dbgFever=document.getElementById('dbgFever');
+dbgFever.addEventListener('click',e=>{             // 左：発動／継続を1段  右：終了
+  e.preventDefault(); e.stopPropagation();
+  if(!S.fever) feverOn();
+  else { S.fvRound++; S.fvT=FV_ROUND; S.fvPulse=1; bang('cont'); sfxCont(); }
+});
+dbgFever.addEventListener('contextmenu',e=>{
+  e.preventDefault(); e.stopPropagation();
+  S.fever=false; S.fvT=0; S.fvLock=0; elFvBadge.style.transform='';
+});
 const perf={on:false, acc:0, n:0, upd:0, drw:0, worst:0};
 function perfToggle(v){
   perf.on = v===undefined ? !perf.on : v;
   elPerf.hidden=!perf.on;
+  dbgFever.hidden=!perf.on;
   elStats.classList.toggle('dbg', perf.on);
   perf.acc=perf.n=perf.upd=perf.drw=perf.worst=0;
   try{ localStorage.setItem('ippon.perf', perf.on?'1':'0'); }catch(e){}
