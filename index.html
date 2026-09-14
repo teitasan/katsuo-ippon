@@ -125,9 +125,13 @@
     box-shadow:0 .5em 1.5em -.4em rgba(224,51,44,.95);
     transition:opacity .14s ease, transform .16s cubic-bezier(.2,1.5,.4,1)}
   .fvbadge.on{opacity:1; transform:translate(-50%,0) scale(1)}
+  /* 目盛りは1秒ぶん。減り方が「資源」ではなく「秒読み」に見えるようにする */
   .fvbar{position:absolute; left:0; top:0; bottom:0; width:100%;
     background:linear-gradient(180deg,#e0332c,#a81d18)}
   .fvbar.low{background:linear-gradient(180deg,#ff9a3c,#d1830d)}
+  .fvbadge:after{content:''; position:absolute; inset:0; z-index:0; pointer-events:none;
+    background:repeating-linear-gradient(90deg, transparent 0 calc(16.6667% - 1px),
+      rgba(3,18,29,.55) calc(16.6667% - 1px) 16.6667%)}
   .fvbadge b,.fvbadge em,.fvbadge i{position:relative; z-index:1}
   .fvbadge b{font-size:.92em; font-weight:700; letter-spacing:.26em; color:#fff}
   .fvbadge em{font-style:normal; font-size:.82em; font-weight:700; color:#ffd0a0; letter-spacing:.04em}
@@ -1571,9 +1575,9 @@ function updateHUD(){
   elFvBadge.classList.toggle('on', S.fever && playing);   // 3択の見出しと重なるので伏せる
   if(S.fever){
     setTxt(elFvChain, S.chain+t('hud.catchUnit'));
-    const u=clamp(S.fvT/FV_ROUND,0,1);
-    elFvBar.style.width=(u*100).toFixed(1)+'%';
-    elFvBar.classList.toggle('low', u<0.25);       // 継続抽選が近い
+    const ticks=clamp(Math.ceil(S.fvT),0,FV_ROUND); // 1秒ずつ落ちる秒読み
+    elFvBar.style.width=(ticks/FV_ROUND*100).toFixed(2)+'%';
+    elFvBar.classList.toggle('low', ticks<=2);      // 継続抽選が近い
     setTxt(elFvRound, t('hud.round',{n:S.fvRound}));
     elFvBadge.style.transform='translate(-50%,0) scale('+(1+0.10*S.fvPulse).toFixed(3)+')';
   }
