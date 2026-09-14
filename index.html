@@ -750,7 +750,8 @@ const TONS=[9,19,49,119,199];
 const FV_ENTRY=0.006;                // 1本あたりの突入確率
 const FV_LOCK=4;                     // 終了後この秒数は突入抽選をしない
 const FV_MINFISH=45;                 // 竿の下にこれだけ魚がいないと突入しない（群れの尻尾で当たらないように）
-const FV_DRY=1.5;                    // これだけ釣れない時間が続いたら入れ食いは切れる
+const FV_DRY=1.0;                    // 1匹釣るたびに0へ戻る。これだけ空くと入れ食いは切れる
+const FV_DRY_GRACE=0.3;              // ここまでは縁を引かせない。竿の間隔で明滅させないため
 const FV_ROUND=6;                    // 1ラウンドの長さ（秒）
 const FV_CONT=0.68;                  // ラウンド終わりの継続確率。期待 1/(1-C) ラウンド
 const FV_RATE=1.1;                   // 入れ食い中の釣り速度の倍率。ここだけがスコアに効く
@@ -1497,7 +1498,9 @@ function updateHUD(){
   const rem=Math.max(0,GAME_TIME-S.t);
   elScore.style.transform = S.pop>0.01 ? 'scale('+(1+0.26*S.pop)+')' : '';
   const playing=S.mode==='play';
-  elFever.style.opacity = S.fever ? '1' : '0';
+  // 縁の赤みが空振りタイマーそのもの。手が止まると引いて、次の1匹で戻る
+  const dry=clamp((S.fvIdle-FV_DRY_GRACE)/(FV_DRY-FV_DRY_GRACE),0,1);
+  elFever.style.opacity = S.fever ? (1-0.85*dry).toFixed(2) : '0';
   elFever.classList.toggle('hot', S.fever && playing);
   elCatch.classList.toggle('hot', S.fever);
   elFvBadge.classList.toggle('on', S.fever && playing);   // 3択の見出しと重なるので伏せる
