@@ -192,26 +192,30 @@
   :focus-visible{outline:2px solid var(--gold); outline-offset:3px}
   .best{margin-top:.7em; font-size:.78em; letter-spacing:.18em; color:var(--dim)}
 
-  /* 獲得表示。舵は握ったまま、3枚がぽんぽんと出て勝手に消える */
-  .gain{position:absolute; left:50%; top:31%; transform:translate(-50%,-50%); z-index:3;
-    display:flex; gap:.7em; pointer-events:none; opacity:1; transition:opacity .35s ease}
-  .gain:not(.on){opacity:0}
-  .gcard{width:7.2em; padding:.5em .4em .55em; text-align:center; opacity:0;
+  /* level up */
+  #levelup .box{text-align:center}
+  .lvhd{font-size:.78em; letter-spacing:.44em; color:var(--gold); margin-bottom:.25em}
+  .lvsub{font-size:1.5em; margin-bottom:1.1em; color:var(--foam)}
+  .cards{display:flex; gap:1em; justify-content:center; flex-wrap:wrap}
+  .card{position:relative; width:11.5em; padding:1.1em .9em 1em; text-align:center;
     background:linear-gradient(180deg,#432e1b,#2c1d10);
     border:1px solid #6b4a26; border-top:3px solid var(--gold); border-radius:2px;
-    box-shadow:0 14px 26px -14px #000;
-    animation:gpop .55s cubic-bezier(.2,1.7,.35,1) both}
-  @keyframes gpop{
-    0%{opacity:0; transform:translateY(1.6em) scale(.6)}
-    60%{opacity:1; transform:translateY(-.15em) scale(1.06)}
-    100%{opacity:1; transform:none}
-  }
-  @media (prefers-reduced-motion:reduce){ .gcard{animation:none; opacity:1} }
-  .gcard canvas{width:2em; height:2em; image-rendering:pixelated; margin:0 auto .25em; display:block}
-  .gcard .gnm{font-size:.72em; font-weight:700; color:#ffe9bd; letter-spacing:.04em}
-  .gcard .gv{font-size:.95em; font-weight:700; color:var(--gold); margin-top:.15em;
-    font-family:"M PLUS 1 Code",ui-monospace,monospace; font-variant-numeric:tabular-nums; white-space:nowrap}
-  .gcard .gv u{text-decoration:none; font-size:.7em; font-weight:500; color:#c2ad83; margin-left:.1em}
+    box-shadow:0 18px 34px -18px #000; cursor:pointer;
+    transition:transform .14s ease, box-shadow .14s ease, border-color .14s ease}
+  .card:hover{transform:translateY(-6px); border-color:var(--gold); box-shadow:0 26px 40px -18px #000}
+  .card .no{position:absolute; top:.4em; left:.55em; font-size:.66em; color:#9c7c50}
+  .card canvas{width:3.4em; height:3.4em; image-rendering:pixelated; margin:.2em auto .55em; display:block}
+  .card .nm{font-size:1.05em; font-weight:700; color:#ffe9bd}
+  .card .lv{font-size:.7em; letter-spacing:.16em; color:var(--gold); margin-top:.15em}
+  .card .val{display:flex; align-items:baseline; justify-content:center; gap:.3em; flex-wrap:wrap;
+    margin-top:.6em; font-family:"M PLUS 1 Code",ui-monospace,monospace; font-variant-numeric:tabular-nums}
+  .card .val s{text-decoration:none; font-size:1em; color:#a4855c}
+  .card .val em{font-style:normal; color:#8a6f4a; font-size:.9em}
+  .card .val b{font-size:1.6em; line-height:1; color:var(--gold); font-weight:700}
+  .card .val i{font-style:normal; font-size:.78em; color:#c7ab82}
+  .card .ef{font-size:.76em; color:#e2cda6; margin-top:.5em; line-height:1.5}
+  .card .fl{font-size:.7em; color:#a98f6b; margin-top:.5em; line-height:1.5}
+  .card.max{opacity:.55}
 
   /* result */
   #result .box{text-align:center; min-width:min(30em,90%)}
@@ -262,7 +266,6 @@
 </head>
 <body>
 
-
 <div id="stage">
   <div id="frame">
     <canvas id="game" width="480" height="270"></canvas>
@@ -292,7 +295,6 @@
       <div class="fvbadge" id="fvbadge"><b id="fvlabel">入れ食い</b><em class="num" id="fvround">1連</em><i class="num" id="fvchain"></i></div>
       <div class="fvbig disp" id="fvbig">入れ食い</div>
 
-      <div class="gain" id="gain"></div>
       <div class="toast" id="toast"><div class="hd">宝箱</div><div id="toastitems"></div></div>
     </div>
 
@@ -312,6 +314,13 @@
       </div>
     </div>
 
+    <div class="scrim" id="levelup">
+      <div class="box">
+        <div class="lvhd" id="lblPickEyebrow">タイリョウ</div>
+        <div class="lvsub disp" id="lblPickHead">どれを積む？</div>
+        <div class="cards" id="cards"></div>
+      </div>
+    </div>
 
     <div class="scrim" id="result">
       <div class="box">
@@ -348,13 +357,13 @@ ja:{
  'hud.time':'ノコリ','hud.catch':'ギョカク','hud.catchUnit':'本','hud.next':'NEXT',
  'hud.fever':'入れ食い','hud.round':'{n}連','hud.sure':'確定',
  'pick.eyebrow':'タイリョウ','pick.head':'どれを積む？',
- 'up.crew.name':'漁師','up.crew.short':'漁師','up.crew.fl':'漁師が増える。釣り座が空いていなければ待機に回る。',
+ 'up.crew.name':'漁師','up.crew.short':'漁師','up.crew.fl':'漁師が3人増える。釣り座が空いていなければ待機に回る。',
  'up.hull.name':'船体','up.hull.short':'船体','up.hull.fl':'船が大きくなり、釣り座と漁獲範囲が広がる。',
  'up.rate.name':'釣具','up.rate.short':'釣具','up.rate.fl':'漁師ひとりあたりの釣り上げが速くなる。',
  'up.engine.name':'機関','up.engine.short':'機関','up.engine.fl':'船の移動速度が上がる。',
  'up.sonar.name':'魚群探知機','up.sonar.short':'魚探','up.sonar.fl':'魚探に映る範囲が広がる。少ない釣果でも入れ食いが続きやすくなる。',
- 'up.lure.name':'集魚装置','up.lure.short':'集魚','up.lure.fl':'魚群が船に押し寄せて居座るようになる。入れ食いも1回ぶん長くなる。',
- 'pick.lvCrew':'漁師 +{n}人','pick.lv':'Lv{a} → Lv{b}',
+ 'up.lure.name':'集魚装置','up.lure.short':'集魚','up.lure.fl':'魚群が船のほうへ寄ってくる。入れ食いが1回ぶん長くなる。',
+ 'pick.lvCrew':'漁師 +3人','pick.lv':'Lv{a} → Lv{b}',
  'pick.efCrew':'うち待機 {a}人　釣り座 {b}人','pick.efBerth':'釣り座 {b}人',
  'pick.efHull':'{a}t → {b}t船',
  'unit.crew':'人','unit.rate':'本/秒','unit.knot':'ノット','unit.km':'km','unit.m':'m','unit.none':'なし',
@@ -376,13 +385,13 @@ en:{
  'hud.time':'TIME','hud.catch':'CATCH','hud.catchUnit':'','hud.next':'NEXT',
  'hud.fever':'ON FIRE','hud.round':'CHAIN {n}','hud.sure':'LOCKED',
  'pick.eyebrow':'BIG CATCH','pick.head':'What comes aboard?',
- 'up.crew.name':'Crew','up.crew.short':'Crew','up.crew.fl':'More hands aboard. They wait ashore if no berth is free.',
+ 'up.crew.name':'Crew','up.crew.short':'Crew','up.crew.fl':'Three more hands. They wait ashore if no berth is free.',
  'up.hull.name':'Hull','up.hull.short':'Hull','up.hull.fl':'A bigger boat: more berths and a wider catch area.',
  'up.rate.name':'Tackle','up.rate.short':'Tackle','up.rate.fl':'Each hand lands fish faster.',
  'up.engine.name':'Engine','up.engine.short':'Engine','up.engine.fl':'The boat moves faster.',
  'up.sonar.name':'Sonar','up.sonar.short':'Sonar','up.sonar.fl':'The scope shows more sea, and keeps a run alive on a thinner haul.',
- 'up.lure.name':'Chum Rig','up.lure.short':'Chum','up.lure.fl':'Schools pile onto the boat and stay there. Each run on fire lasts longer too.',
- 'pick.lvCrew':'+{n} crew','pick.lv':'Lv{a} → Lv{b}',
+ 'up.lure.name':'Chum Rig','up.lure.short':'Chum','up.lure.fl':'Schools drift toward the boat, and each run on fire lasts longer.',
+ 'pick.lvCrew':'+3 crew','pick.lv':'Lv{a} → Lv{b}',
  'pick.efCrew':'{a} standing by · {b} berths','pick.efBerth':'{b} berths',
  'pick.efHull':'{a}t → {b}t boat',
  'unit.crew':'','unit.rate':'fish/s','unit.knot':'kn','unit.km':'km','unit.m':'m','unit.none':'none',
@@ -737,16 +746,13 @@ function buildSea(){
 }
 
 /* ---------------- 強化定義 ---------------- */
-/* n は「そのカードが何段ぶんか」、w は引かれやすさ。
-   漁師は人数を固定（+2）にして比べるものを作らず、重みだけ上げて
-   「引けない回」を減らす。出目にすると3択のたびに比較が要るのでやらない */
 const UPG=[
-  {id:'crew', max:99, lv:()=>S.up.crew, n:2, w:3},
-  {id:'hull', max:5, lv:()=>S.up.hull},
-  {id:'rate', max:10, lv:()=>S.up.rate},
-  {id:'engine', max:10, lv:()=>S.up.engine},
-  {id:'sonar', max:6, lv:()=>S.up.sonar},
-  {id:'lure', max:8, lv:()=>S.up.lure}
+  {id:'crew', max:99, lv:()=>S.up.crew, apply:()=>{S.up.crew+=3;}},
+  {id:'hull', max:5, lv:()=>S.up.hull, apply:()=>{S.up.hull=Math.min(5,S.up.hull+1);}},
+  {id:'rate', max:10, lv:()=>S.up.rate, apply:()=>{S.up.rate++;}},
+  {id:'engine', max:10, lv:()=>S.up.engine, apply:()=>{S.up.engine++;}},
+  {id:'sonar', max:6, lv:()=>S.up.sonar, apply:()=>{S.up.sonar++;}},
+  {id:'lure', max:8, lv:()=>S.up.lure, apply:()=>{S.up.lure++;}}
 ];
 const UPG_BY={}; UPG.forEach(u=>UPG_BY[u.id]=u);
 const UPG_IDS=[...new Set(UPG.map(u=>u.id))];   // 表示はこちら。プールは漁師が3枚あるため
@@ -754,7 +760,7 @@ const ICONS={};
 
 /* ---------------- 状態 ---------------- */
 const S={
-  mode:'play', started:false, t:0, score:0, best:0, level:1, need:35, prog:0,
+  mode:'play', started:false, t:0, score:0, best:0, level:1, need:9, prog:0,
   boat:{x:0,y:0,vx:0,vy:0,hd:0,sp:0,face:1,bob:0},
   stick:{id:-1, on:false, ax:0, ay:0, tx:0, ty:0, f:0},
   dir:{x:0,y:0}, aim:{x:0,y:0},
@@ -796,7 +802,7 @@ const stat = {
   turn:(u)=>{u=u||S.up; return 5.0*Math.pow(1.10,u.engine)*(1-0.03*(u.hull-1));},
   sonar:(u)=>250*Math.pow(1.32,(u||S.up).sonar-1),
   lureR:(u)=>{u=u||S.up; return u.lure===0?0:150+70*u.lure;},
-  lureF:()=>(S.up.lure-1)*9,    // 初期Lv1は0。上げた分だけ群れ自身の進行方向を押し切る
+  lureF:()=>S.up.lure*3.4,
   seats:(u)=>boats[(u||S.up).hull-1].seatX.length*2,
   power:(u)=>{u=u||S.up; return Math.min(u.crew,stat.seats(u))*stat.rate(u);},
   rx:()=>HULL_LEN[S.up.hull-1]/2+24,
@@ -823,15 +829,13 @@ function valOf(id,u){
   if(!r.h) r.h=r.n;
   return r;
 }
-function nextUp(id,n){
-  n=n||1;
+function nextUp(id){
   const u=Object.assign({},S.up);
-  if(id==='crew') u.crew+=n;
-  else if(id==='hull') u.hull=Math.min(5,u.hull+n);
-  else u[id]=Math.min(UPG_BY[id].max, u[id]+n);
+  if(id==='crew') u.crew+=3;
+  else if(id==='hull') u.hull=Math.min(5,u.hull+1);
+  else u[id]++;
   return u;
 }
-function rollOf(u){ return u.n||1; }
 function loadBest(){ try{return parseInt(localStorage.getItem('ippon.best')||'0',10)||0;}catch(e){return 0;} }
 function saveBest(v){ try{localStorage.setItem('ippon.best',String(v));}catch(e){} }
 </script>
@@ -862,11 +866,7 @@ function makeGulls(n0){
 }
 const PSTEP=4, PN=104;            // 先頭の軌跡を4px刻みで416pxぶん保持する
 /* 表に出さない副効果の係数（1レベルあたり） */
-const TUNE={ lureSchoolSize:0.12, sonarChestRate:0.15,
-  lureSpeed:0.22,      // 集魚Lv1つあたり、寄ってくる群れの足がどれだけ速くなるか
-  lureHold:0.40,       // 船べり（70px以内）では足を落として溜まらせる
-  lureCalm:0.22,       // 集魚Lv1つあたり逃走をどれだけ抑えるか。Lv5で逃げなくなる
-  lureTurn:0.30 };     // 集魚Lv1つあたり、寄るときの角速度の上限をどれだけ上げるか
+const TUNE={ lureSchoolSize:0.12, sonarChestRate:0.15 };
 function makeSchool(x,y,count){
   const rx=schoolRadius(count), ry=rx*0.6;
   const ang=rnd(0,TAU), ca=Math.cos(ang), sa=Math.sin(ang);
@@ -930,20 +930,15 @@ function updateSchools(dt){
     s.turn=clamp(s.turn+rnd(-1,1)*dt*2.6,-0.7,0.7);
     s.ang+=s.turn*dt;
     s.pulse+=dt*1.7;
-    let sp=s.sp*(1+0.18*Math.sin(s.pulse));
+    const sp=s.sp*(1+0.18*Math.sin(s.pulse));
     let tx=Math.cos(s.ang), ty=Math.sin(s.ang), react=0;
     const dx=B.x-s.cx, dy=B.y-s.cy, di=Math.hypot(dx,dy)||1;
-    if(lr>0 && di<lr){                          // 集魚：船の方へ舵を切らせ、足も速くする
-      const pull=1-di/lr, w=lf/12*pull;
-      tx+=dx/di*w; ty+=dy/di*w;
-      // 角速度の上限も上げないと、向きを変えるだけで数秒かかって届かない
-      react=Math.max(react, Math.min(1+(S.up.lure-1)*TUNE.lureTurn, w/1.4));
-      sp*=1+TUNE.lureSpeed*(S.up.lure-1)*pull;  // 舵だけだと遅すぎて届かない
-      if(di<70) sp*=TUNE.lureHold;              // 船べりでは止まって溜まる
+    if(lr>0 && di<lr){                          // 集魚：船の方へ舵を切らせる
+      const w=lf/12*(1-di/lr);
+      tx+=dx/di*w; ty+=dy/di*w; react=Math.max(react,Math.min(1,w/1.4));
     }
-    const calm=Math.max(0, 1-TUNE.lureCalm*(S.up.lure-1));
-    if(di<78 && calm>0){                        // 逃走。集魚が育つほど逃げなくなる
-      const w=1.3*(1-di/78)*calm;
+    if(di<78){                                  // 逃走：少しだけ進路を変える程度に留める
+      const w=1.3*(1-di/78);
       tx-=dx/di*w; ty-=dy/di*w; react=Math.max(react,Math.min(0.35,w));  // 角速度は上げすぎない（周回防止）
     }
     let dh=Math.atan2(ty,tx)-s.hd;
@@ -1102,40 +1097,27 @@ function bang(kind){                             // 決定的な瞬間の閃光�
 /* ================= 強化 ================= */
 function rollChoices(){
   const pool=UPG.filter(u=>u.lv()<u.max), out=[];
-  while(out.length<3 && pool.length){           // 重み付きで3枚。漁師だけ重い
-    let tot=0; for(const p of pool) tot+=(p.w||1);
-    let r=Math.random()*tot, k=0;
-    while(k<pool.length-1 && (r-=(pool[k].w||1))>0) k++;
-    out.push(pool.splice(k,1)[0]);
-  }
+  while(out.length<3 && pool.length) out.push(pool.splice(rint(0,pool.length-1),1)[0]);
   while(out.length<3) out.push(UPG_BY.crew);
-  // 重い札ほど先に引かれるので並びだけ均す（漁師が毎回1枚目に来ないように）
-  for(let i=out.length-1;i>0;i--){ const j=rint(0,i), t2=out[i]; out[i]=out[j]; out[j]=t2; }
-  return out.map(u=>({u, n:rollOf(u)}));
+  return out;
 }
-/* 3枚とも配る。選ばないので時間も止めない。
-   必要本数は「旧レベル3つぶんの合計」にしてあるので、同じ本数で同じ強化量になる。
-   変わるのは区切りの回数だけ（1/3） */
-const LV_MUL=3;
-const LV_R=Math.pow(1.28,LV_MUL);                 // 1区切りあたりの伸び
-const LV_BASE=9*(1+1.28+1.28*1.28);               // 旧Lv1+2+3ぶん
-function lvNeed(n){ return Math.round(LV_BASE*Math.pow(LV_R,n-1)); }
 function levelUp(){
   S.prog-=S.need; S.level++;
-  S.need=lvNeed(S.level);
-  const got=rollChoices();
-  got.forEach(ch=>applyUpgrade(ch.u, ch.n));
+  S.need=Math.round(9*Math.pow(1.28,S.level-1));
+  S.mode='levelup';
+  S.choices=rollChoices();
   bang('lv'); sfxLevel();
-  showGain(got);
+  clearTimeout(levelUp._t);                      // 閃光を見せてからカードを開く
+  levelUp._t=setTimeout(()=>{ if(S.mode==='levelup') showCards(); }, 340);
 }
-function applyUpgrade(u,n){ Object.assign(S.up, nextUp(u.id,n||1)); layoutCrew(); }
+function applyUpgrade(u){ u.apply(); layoutCrew(); }
 function openChest(){
   const n = Math.random()<.70?1:(Math.random()<.73?3:5);
   const got=[];
   for(let i=0;i<n;i++){
     const pool=UPG.filter(u=>u.lv()<u.max);
     const u=pool.length?pick(pool):UPG_BY.crew;
-    Object.assign(S.up, nextUp(u.id, rollOf(u))); got.push(t('up.'+u.id+'.name'));
+    u.apply(); got.push(t('up.'+u.id+'.name'));
   }
   layoutCrew(); bang('chest'); sfxChest();
   const counts={};
@@ -1558,26 +1540,6 @@ const elTime=document.getElementById('time'), elClock=document.getElementById('c
 const elScore=document.getElementById('score'), elFill=document.getElementById('lvfill');
 const elLvNum=document.getElementById('lvnum'), elStats=document.getElementById('stats');
 const toastEl=document.getElementById('toast'), toastItems=document.getElementById('toastitems');
-const gainEl=document.getElementById('gain');
-function showGain(got){
-  gainEl.innerHTML='';
-  got.forEach((ch,i)=>{
-    const u=ch.u;                                 // 値は反映後。levelUp が先に適用している
-    const d=document.createElement('div'); d.className='gcard';
-    d.style.animationDelay=(i*0.13)+'s';
-    const c=document.createElement('canvas'); c.width=16;c.height=16;
-    c.getContext('2d').drawImage(ICONS[u.id],0,0);
-    const nm=document.createElement('div'); nm.className='gnm'; nm.textContent=t('up.'+u.id+'.name');
-    const v=document.createElement('div'); v.className='gv num';
-    const val=valOf(u.id,S.up);
-    v.innerHTML=val.h+(val.u?'<u>'+val.u+'</u>':'');
-    d.append(c,nm,v); gainEl.appendChild(d);
-    setTimeout(()=>sfxPick(), i*130);
-  });
-  gainEl.classList.add('on');
-  clearTimeout(showGain._t);
-  showGain._t=setTimeout(()=>gainEl.classList.remove('on'), 1500);
-}
 const chipEls={};
 function buildChips(){
   UPG_IDS.forEach(id=>{
@@ -1641,11 +1603,59 @@ function updateHUD(){
 }
 
 /* ================= 3択 ================= */
+const cardsEl=document.getElementById('cards');
+const scrLevel=document.getElementById('levelup');
+function showCards(){
+  cardsEl.innerHTML='';
+  S.choices.forEach((u,idx)=>{
+    const d=document.createElement('div'); d.className='card'; d.tabIndex=0;
+    const nu=nextUp(u.id), v0=valOf(u.id,S.up), v1=valOf(u.id,nu);
+    const no=document.createElement('div'); no.className='no'; no.textContent=idx+1;
+    const c=document.createElement('canvas'); c.width=16;c.height=16;
+    c.getContext('2d').drawImage(ICONS[u.id],0,0);
+    const nm=document.createElement('div'); nm.className='nm'; nm.textContent=t('up.'+u.id+'.name');
+    const lv=document.createElement('div'); lv.className='lv';
+    lv.textContent = u.id==='crew' ? t('pick.lvCrew') : t('pick.lv',{a:u.lv(),b:u.lv()+1});
+    const val=document.createElement('div'); val.className='val';
+    val.innerHTML='<s>'+v0.h+'</s><em>→</em><b>'+v1.h+'</b>'+(v1.u?'<i>'+v1.u+'</i>':'');
+    d.append(no,c,nm,lv,val);
+    const seats0=stat.seats(S.up), seats1=stat.seats(nu);
+    let ef='';
+    if(u.id==='crew'){
+      const wait=Math.max(0,nu.crew-seats0);
+      ef = wait>0 ? t('pick.efCrew',{a:wait,b:seats0}) : t('pick.efBerth',{b:seats0});
+    }else if(u.id==='hull'){
+      ef=t('pick.efHull',{a:TONS[S.up.hull-1],b:TONS[nu.hull-1]});
+    }else if(u.id==='sonar'){
+      ef=fmtDist(stat.sonar(S.up)*M_PER_PX)+' → '+fmtDist(stat.sonar(nu)*M_PER_PX);
+    }else if(u.id==='lure'){
+      const r0=stat.lureR(S.up)*M_PER_PX;
+      ef=(r0?fmtDist(r0):'なし')+' → '+fmtDist(stat.lureR(nu)*M_PER_PX);
+    }
+    if(ef){ const e=document.createElement('div'); e.className='ef'; e.textContent=ef; d.append(e); }
+    const fl=document.createElement('div'); fl.className='fl'; fl.textContent=t('up.'+u.id+'.fl'); d.append(fl);
+    d.addEventListener('click',()=>choose(idx));
+    d.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){e.preventDefault();choose(idx);} });
+    cardsEl.appendChild(d);
+  });
+  scrLevel.classList.add('on');
+  const first=cardsEl.firstChild; if(first) first.focus({preventScroll:true});
+}
+function choose(i){
+  if(S.mode!=='levelup' || !scrLevel.classList.contains('on')) return;
+  applyUpgrade(S.choices[i]);
+  scrLevel.classList.remove('on');
+  S.mode='play';
+  sfxPick();
+}
+window.addEventListener('keydown',e=>{
+  if(S.mode==='levelup' && e.key>='1' && e.key<='3') choose(parseInt(e.key,10)-1);
+});
 
 /* ================= 開始・終了 ================= */
 const scrResult=document.getElementById('result'), promptEl=document.getElementById('prompt');
 function reset(){
-  S.t=0; S.started=false; S.score=0; S.level=1; S.need=lvNeed(1); S.prog=0; S.totalFish=0; S.chestT=20;
+  S.t=0; S.started=false; S.score=0; S.level=1; S.need=9; S.prog=0; S.totalFish=0; S.chestT=20;
   S.schools.length=0; S.chests.length=0; S.crew.length=0;
   S.parts.length=0; S.wake.length=0; S.rings.length=0; S.spray.length=0; S.flash.length=0; S.pops.length=0;
   S.fvT=0; S.fvCaught=0; S.fvSure=false; S.fvRound=0; S.fvLock=0; S.fvPulse=0; S.fever=false; S.chain=0; S.inRange=0; S.pop=0; S.shake=0; S.freeze=0; S.burst=null;
@@ -1885,11 +1895,12 @@ function applyLang(){
   set('fvlabel','hud.fever'); set('fvbig','hud.fever');
   elFvRound.textContent=t('hud.round',{n:Math.max(1,S.fvRound)});
   elFvBadge.querySelector('em').textContent='\u00d7'+FV_RATE.toFixed(1);
-  set('lblResHead','res.head');
+  set('lblPickEyebrow','pick.eyebrow'); set('lblPickHead','pick.head'); set('lblResHead','res.head');
   document.querySelectorAll('#stats .chip b[data-k]').forEach(b=>{ b.textContent=t(b.dataset.k); });
   document.getElementById('titlebest').textContent = S.best ? t('title.best',{n:fmt(S.best)}) : '';
   lastTxt={};
   updateHUD();
+  if(S.mode==='levelup') showCards();
 }
 window.setGameLang=c=>{ setLang(c); applyLang(); };   // Playables では getLanguage の結果を渡す
 window.addEventListener('keydown',e=>{                 // 検証用：デバッグ表示中に L で切り替え
@@ -1905,6 +1916,5 @@ applyLang();
 reset(); S.mode='play'; S.started=false;
 requestAnimationFrame(tick);
 </script>
-
 </body>
 </html>
