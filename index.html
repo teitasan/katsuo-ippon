@@ -736,7 +736,8 @@ const S={
   schools:[], chests:[], crew:[], parts:[], wake:[], rings:[], spray:[], flash:[],
   up:{crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1},
   seatX:[], seats:0, chestT:26, sprayAcc:0, start:{crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1}, totalFish:0, choices:[], caught:0,
-  rt:0, shake:0, freeze:0, pop:0, pops:[], burst:null, fvT:0, fvRound:0, fvLock:0, fvPulse:0, fever:false, chain:0
+  rt:0, shake:0, freeze:0, pop:0, pops:[], burst:null, inRange:0, fvIdle:0,
+  fvT:0, fvRound:0, fvLock:0, fvPulse:0, fever:false, chain:0
 };
 const TONS=[9,19,49,119,199];
 /* 入れ食い＝大群に当たったとき。
@@ -748,6 +749,8 @@ const TONS=[9,19,49,119,199];
    大きい群れほど抽選回数が増えるので、狙いに行く意味は確率として残る。 */
 const FV_ENTRY=0.006;                // 1本あたりの突入確率
 const FV_LOCK=4;                     // 終了後この秒数は突入抽選をしない
+const FV_MINFISH=45;                 // 竿の下にこれだけ魚がいないと突入しない（群れの尻尾で当たらないように）
+const FV_DRY=1.5;                    // これだけ釣れない時間が続いたら入れ食いは切れる
 const FV_ROUND=6;                    // 1ラウンドの長さ（秒）
 const FV_CONT=0.68;                  // ラウンド終わりの継続確率。期待 1/(1-C) ラウンド
 const FV_RATE=1.1;                   // 入れ食い中の釣り速度の倍率。ここだけがスコアに効く
@@ -970,6 +973,7 @@ function updateFishing(dt){
       if(ex*ex+ey*ey<=1) (f.wy<B.y?up:dn).push({f,s});
     }
   }
+  S.inRange=up.length+dn.length;                // 竿の下に今いる魚。入れ食いの判定に使う
   for(const fm of S.crew){
     if(fm.pose===1){ fm.pt-=dt; if(fm.pt<=0){ fm.pose=0; } }
     fm.cd-=dt;
@@ -995,8 +999,9 @@ function doCatch(fm,o){
   S.parts.push({x:o.f.wx, y:o.f.wy, x0:o.f.wx, y0:o.f.wy, t:0, dur:.28, a:o.f.a, d:o.f.dd, fm});
   S.rings.push({x:o.f.wx, y:o.f.wy, t:0});
   S.pop=1;                                       // ギョカクの数字を弾ませる
+  S.fvIdle=0;
   if(S.fever) S.chain++;
-  else if(S.fvLock<=0 && Math.random()<FV_ENTRY) feverOn();   // 1本ごとの突入抽選
+  else if(S.fvLock<=0 && S.inRange>=FV_MINFISH && Math.random()<FV_ENTRY) feverOn();   // 1本ごとの突入抽選
   sfxCatch();
   if(S.prog>=S.need) levelUp();
 }
@@ -1012,7 +1017,12 @@ function feverOn(){
 }
 function updateFever(dt){
   if(S.fvLock>0) S.fvLock-=dt;
+  S.fvIdle+=dt;
   if(!S.fever) return;
+  if(S.fvIdle>FV_DRY){                           // 魚が切れたら入れ食いも切れる
+    S.fever=false; S.fvT=0; S.fvLock=FV_LOCK; elFvBadge.style.transform='';
+    return;
+  }
   S.fvT-=dt;
   if(S.fvT>0) return;
   if(Math.random()<FV_CONT){                     // 継続。ここがこのモードの山場
@@ -1569,7 +1579,7 @@ function reset(){
   S.t=0; S.started=false; S.score=0; S.level=1; S.need=9; S.prog=0; S.totalFish=0; S.chestT=20;
   S.schools.length=0; S.chests.length=0; S.crew.length=0;
   S.parts.length=0; S.wake.length=0; S.rings.length=0; S.spray.length=0; S.flash.length=0; S.pops.length=0;
-  S.fvT=0; S.fvRound=0; S.fvLock=0; S.fvPulse=0; S.fever=false; S.chain=0; S.pop=0; S.shake=0; S.freeze=0; S.burst=null;
+  S.fvT=0; S.fvRound=0; S.fvLock=0; S.fvPulse=0; S.fever=false; S.chain=0; S.inRange=0; S.fvIdle=0; S.pop=0; S.shake=0; S.freeze=0; S.burst=null;
   S.up={crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1};
   S.start={crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1};
   Object.assign(S.boat,{x:0,y:0,vx:0,vy:0,hd:0,sp:0,face:1,bob:0});
