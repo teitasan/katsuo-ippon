@@ -128,10 +128,6 @@
   .fvbar{position:absolute; left:0; top:0; bottom:0; width:100%;
     background:linear-gradient(180deg,#e0332c,#a81d18)}
   .fvbar.low{background:linear-gradient(180deg,#ff9a3c,#d1830d)}
-  .fvbadge.final{border-color:#ffd766; box-shadow:0 .5em 1.5em -.3em rgba(242,179,44,.95)}
-  .fvbadge.final .fvbar{background:linear-gradient(180deg,#f7c245,#d1830d)}
-  .fvbadge.final b{color:#3a1c06}
-  .fvbadge.final em,.fvbadge.final i{color:#5a2f08}
   .fvbadge b,.fvbadge em,.fvbadge i{position:relative; z-index:1}
   .fvbadge b{font-size:.92em; font-weight:700; letter-spacing:.26em; color:#fff}
   .fvbadge em{font-style:normal; font-size:.82em; font-weight:700; color:#ffd0a0; letter-spacing:.04em}
@@ -749,14 +745,12 @@ const TONS=[9,19,49,119,199];
    状態検出はやめて「その時間帯の湧き量の上限に近い群れに入った」ことを引き金にする。
    魚探で大きい反応を選ぶ意味がここで出る。 */
 const FV_SEC=3.0;                    // タイマーの長さ。切れたら入れ食いは終わる
-const FV_KEEP=0.80;                  // タイマーを戻すのに必要な本数＝この割合で釣り続けた場合の本数。
-                                     // 固定本数にすると終盤は0.3秒で溜まって100秒続いてしまう
+const FV_HITS=10;                    // この本数を釣るたびタイマーが満タンに戻る。
+                                     // 終盤は密度で溜まりっぱなしになるが、そこは直さずインフレとして受ける
 const FV_PCT=0.38;                   // 湧き量の分布の上位何割を「大群」とみなすか
 const FV_MINPOW=4.5;                 // 漁師2人の2.5本/秒では「入れ食い」に見えないので下限を引く
 const FV_RATE=1.5;                   // 入れ食い中の釣り速度の倍率。ここだけがスコアに効く
 const FV_STOP=0.12;                  // 発動の瞬間に世界を止める秒数
-const FV_FINAL=30;                   // 残りこの秒数からは入れ食いが切れなくなる
-function fvHits(){ return Math.max(4, Math.round(stat.power()*FV_RATE*FV_SEC*FV_KEEP)); }
 function fvBig(){                    // manageWorld の湧き量 rnd(lo,hi) と同じ式で境目を出す
   const q=Math.pow(S.t/GAME_TIME,2), lo=50+q*850, hi=150+q*1450;
   return lo+(hi-lo)*FV_PCT;
@@ -1006,7 +1000,7 @@ function doCatch(fm,o){
   S.pop=1;                                       // ギョカクの数字を弾ませる
   if(S.fever){                                   // FV_HITS 本ごとにタイマーが満タンに戻る
     S.chain++;
-    if(++S.fvHit>=fvHits()){ S.fvHit=0; S.fvT=FV_SEC; S.fvPulse=1; }
+    if(++S.fvHit>=FV_HITS){ S.fvHit=0; S.fvT=FV_SEC; S.fvPulse=1; }
   }
   else if(!o.s.fvUsed && o.s.n0>=fvBig() && stat.power()>=FV_MINPOW){ o.s.fvUsed=true; feverOn(); }
   sfxCatch();
@@ -1023,11 +1017,6 @@ function feverOn(){
   feverOn._t=setTimeout(()=>elFvBig.classList.remove('go'),1150);
 }
 function updateFever(dt){
-  if(GAME_TIME-S.t<=FV_FINAL){                   // 大詰め。ここからは切らさない
-    if(!S.fever) feverOn();
-    S.fvT=FV_SEC; S.fvHit=0;
-    return;
-  }
   if(!S.fever) return;
   S.fvT-=dt;
   if(S.fvT<=0){ S.fever=false; S.fvT=0; S.fvHit=0; elFvBadge.style.transform=''; }
@@ -1500,11 +1489,9 @@ function updateHUD(){
   elFvBadge.classList.toggle('on', S.fever && playing);   // 3択の見出しと重なるので伏せる
   if(S.fever){
     setTxt(elFvChain, S.chain+t('hud.catchUnit'));
-    const fin=GAME_TIME-S.t<=FV_FINAL;
     const u=clamp(S.fvT/FV_SEC,0,1);
     elFvBar.style.width=(u*100).toFixed(1)+'%';
-    elFvBar.classList.toggle('low', !fin && u<0.34);
-    elFvBadge.classList.toggle('final', fin);
+    elFvBar.classList.toggle('low', u<0.34);
     elFvBadge.style.transform='translate(-50%,0) scale('+(1+0.10*S.fvPulse).toFixed(3)+')';
   }
   setTxt(elTime, rem>10 ? Math.floor(rem/60)+':'+String(Math.floor(rem%60)).padStart(2,'0') : rem.toFixed(1));
