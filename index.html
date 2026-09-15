@@ -764,7 +764,7 @@ const S={
   boat:{x:0,y:0,vx:0,vy:0,hd:0,sp:0,face:1,bob:0},
   stick:{id:-1, on:false, ax:0, ay:0, tx:0, ty:0, f:0},
   dir:{x:0,y:0}, aim:{x:0,y:0},
-  schools:[], chests:[], crew:[], parts:[], wake:[], rings:[], spray:[], flash:[],
+  schools:[], chests:[], crew:[], parts:[], wake:[], rings:[], spray:[], flash:[], boil:[], boilAcc:0,
   up:{crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1},
   seatX:[], seats:0, acc:1, chestT:26, sprayAcc:0, start:{crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1}, totalFish:0, choices:[], caught:0,
   rt:0, shake:0, freeze:0, pop:0, pops:[], burst:null, inRange:0,
@@ -1206,6 +1206,30 @@ function updateParts(dt){
     if(s.t>s.life){ S.spray.splice(i,1); continue; }
     s.x+=s.vx*dt; s.y+=s.vy*dt; s.vy*=0.94;
   }
+  for(let i=S.boil.length-1;i>=0;i--){ const b=S.boil[i]; b.t+=dt; if(b.t>b.life) S.boil.splice(i,1); }
+  spawnBoil(dt);
+}
+/* 入れ食い中だけ、群れが水面で跳ねる（ナブラ）。判定には一切関わらない */
+const BOIL_MAX=80, BOIL_RATE=170;    // 同時に出る上限と、1秒あたりに跳ねる数
+function spawnBoil(dt){
+  if(!S.fever || S.boil.length>=BOIL_MAX) return;
+  const B=S.boat;
+  S.boilAcc += dt*(REDUCE?BOIL_RATE*0.3:BOIL_RATE);
+  let n=S.boilAcc|0; if(n<=0) return;
+  S.boilAcc-=n;
+  const near=[];                                 // 画面の外では跳ねなくていい
+  for(const s of S.schools){
+    if(s.alive<=0) continue;
+    if(Math.abs(s.cx-B.x)>VW/2+70 || Math.abs(s.cy-B.y)>VH/2+70) continue;
+    near.push(s);
+  }
+  if(!near.length) return;
+  while(n-->0 && S.boil.length<BOIL_MAX){
+    const s=near[rint(0,near.length-1)];
+    const f=s.fish[rint(0,s.fish.length-1)];
+    if(!f || !f.alive) continue;
+    S.boil.push({x:f.wx+rnd(-2,2), y:f.wy+rnd(-1,1), t:0, life:rnd(.26,.42), k:rnd(.7,1.25), d:Math.random()<.5?1:-1});
+  }
 }
 </script>
 
@@ -1343,6 +1367,23 @@ function drawSpray(){
   }
   ctx.globalAlpha=1;
 }
+function drawBoil(){
+  const B=S.boat, ox=VW/2-B.x, oy=VH/2-B.y;
+  ctx.lineWidth=1;
+  for(const b of S.boil){
+    const u=b.t/b.life, x=Math.round(b.x+ox), y=Math.round(b.y+oy);
+    ctx.globalAlpha=(1-u)*.5;                      // 水面に広がる輪
+    ctx.strokeStyle='#d8f0fa';
+    const rr=(1+u*5)*b.k;
+    ctx.beginPath(); ctx.ellipse(x+.5, y+.5, rr, rr*.45, 0,0,TAU); ctx.stroke();
+    ctx.globalAlpha=(1-u)*.9;                      // 跳ねた粒。上がって落ちる
+    ctx.fillStyle='#e9f7fc';
+    const h=Math.sin(u*Math.PI)*4.5*b.k;
+    ctx.fillRect(x, Math.round(y-h), 1, 1);
+    ctx.fillRect(x+b.d, Math.round(y-h*.65), 1, 1);
+  }
+  ctx.globalAlpha=1;
+}
 function drawLines(){
   const B=S.boat, ox=VW/2-B.x, oy=VH/2-B.y;
   const by0=VH/2+bobPx, HULL_BOT=4;
@@ -1446,7 +1487,7 @@ function draw(){
     sx=Math.round(Math.sin(S.rt*82)*m); sy=Math.round(Math.cos(S.rt*67)*m);
   }
   if(sx||sy) ctx.setTransform(1,0,0,1,sx,sy);
-  drawSea(); drawSchools(); drawChests(); drawRings(); drawWake();
+  drawSea(); drawSchools(); drawBoil(); drawChests(); drawRings(); drawWake();
   drawBoat(); drawSpray(); drawLines(); drawPops(); drawGulls();
   if(sx||sy) ctx.setTransform(1,0,0,1,0,0);
   drawBurst(); drawStick();
@@ -1672,7 +1713,7 @@ const scrResult=document.getElementById('result'), promptEl=document.getElementB
 function reset(){
   S.t=0; S.started=false; S.score=0; S.level=1; S.need=9; S.prog=0; S.totalFish=0; S.chestT=20;
   S.schools.length=0; S.chests.length=0; S.crew.length=0;
-  S.parts.length=0; S.wake.length=0; S.rings.length=0; S.spray.length=0; S.flash.length=0; S.pops.length=0;
+  S.parts.length=0; S.wake.length=0; S.rings.length=0; S.spray.length=0; S.flash.length=0; S.pops.length=0; S.boil.length=0; S.boilAcc=0;
   S.fvT=0; S.fvRound=0; S.fvLock=0; S.fvPulse=0; S.fever=false; S.chain=0; S.inRange=0; S.pop=0; S.shake=0; S.freeze=0; S.burst=null;
   S.up={crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1};
   S.start={crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1};
