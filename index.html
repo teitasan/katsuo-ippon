@@ -354,7 +354,7 @@ ja:{
  'pick.eyebrow':'タイリョウ','pick.head':'どれを積む？',
  'up.crew.name':'漁師','up.crew.short':'漁師','up.crew.fl':'漁師が3人増える。釣り座が空いていなければ待機に回る。',
  'up.hull.name':'船体','up.hull.short':'船体','up.hull.fl':'船が大きくなり、釣り座と漁獲範囲が広がる。',
- 'up.rate.name':'釣具','up.rate.short':'釣具','up.rate.fl':'漁師ひとりあたりの釣り上げが速くなる。',
+ 'up.rate.name':'釣具','up.rate.short':'釣具','up.rate.fl':'竿が1本増える。手が足りなければ1人で何本も持つ。',
  'up.engine.name':'機関','up.engine.short':'機関','up.engine.fl':'船の移動速度が上がる。',
  'up.sonar.name':'魚群探知機','up.sonar.short':'魚探','up.sonar.fl':'魚探に映る範囲が広がる。少ない釣果でも入れ食いが続きやすくなる。',
  'up.lure.name':'集魚装置','up.lure.short':'集魚','up.lure.fl':'魚群が船のほうへ寄ってくる。入れ食いが1回ぶん長くなる。',
@@ -382,7 +382,7 @@ en:{
  'pick.eyebrow':'BIG CATCH','pick.head':'What comes aboard?',
  'up.crew.name':'Crew','up.crew.short':'Crew','up.crew.fl':'Three more hands. They wait ashore if no berth is free.',
  'up.hull.name':'Hull','up.hull.short':'Hull','up.hull.fl':'A bigger boat: more berths and a wider catch area.',
- 'up.rate.name':'Tackle','up.rate.short':'Tackle','up.rate.fl':'Each hand lands fish faster.',
+ 'up.rate.name':'Tackle','up.rate.short':'Tackle','up.rate.fl':'One more pole. Short-handed, one hand works several.',
  'up.engine.name':'Engine','up.engine.short':'Engine','up.engine.fl':'The boat moves faster.',
  'up.sonar.name':'Sonar','up.sonar.short':'Sonar','up.sonar.fl':'The scope shows more sea, and keeps a run alive on a thinner haul.',
  'up.lure.name':'Chum Rig','up.lure.short':'Chum','up.lure.fl':'Schools drift toward the boat, and each run on fire lasts longer.',
@@ -783,15 +783,26 @@ const FV_RATE=1.1;                   // 入れ食い中の釣り速度の倍率�
 const FV_STOP=0.12;                  // 突入の瞬間に世界を止める秒数
 let REDUCE=false;
 try{ REDUCE=matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){}
+/* 釣具は「竿の本数」。稼働している漁師に1本ずつ配り、余ったら2本目3本目を持たせる。
+   竿を1本持つごとにその漁師は ROD 倍で釣るので、人手が少ないほど重複が進んで掛け算が効く。
+   ＝「漁師でゴリ押し」と「少数精鋭に竿を山盛り」が逆向きのビルドになる */
+const BARE=1.25;                     // 素手（竿0本）の1人あたり本/秒
+const ROD=4;                         // 竿1本ぶんの倍率
+function rodSplit(u){                // n人に N本を均等に配る
+  u=u||S.up;
+  const n=Math.max(1,Math.min(u.crew,stat.seats(u))), N=u.rate;
+  return {n, q:(N/n)|0, rem:N%n};
+}
 const stat = {
-  rate:(u)=>1.25*Math.pow(1.18,(u||S.up).rate),
+  rate:(u)=>stat.power(u)/Math.max(1,rodSplit(u).n),   // 1人あたりの平均。表示には使わない
   speed:(u)=>{u=u||S.up; return 52*Math.pow(1.12,u.engine)*(1+0.045*(u.hull-1));},
   turn:(u)=>{u=u||S.up; return 5.0*Math.pow(1.10,u.engine)*(1-0.03*(u.hull-1));},
   sonar:(u)=>250*Math.pow(1.32,(u||S.up).sonar-1),
   lureR:(u)=>{u=u||S.up; return u.lure===0?0:150+70*u.lure;},
   lureF:()=>S.up.lure*3.4,
   seats:(u)=>boats[(u||S.up).hull-1].seatX.length*2,
-  power:(u)=>{u=u||S.up; return Math.min(u.crew,stat.seats(u))*stat.rate(u);},
+  power:(u)=>{const {n,q,rem}=rodSplit(u);            // 船全体の本/秒
+    return BARE*(rem*Math.pow(ROD,q+1)+(n-rem)*Math.pow(ROD,q));},
   rx:()=>HULL_LEN[S.up.hull-1]/2+24,
   ry:()=>42
 };
@@ -807,7 +818,8 @@ function valOf(id,u){
       break;
     }
     case 'hull':   r={n:String(stat.seats(u)), u:t('unit.crew')}; break;
-    case 'rate':   r={n:stat.rate(u).toFixed(2), u:t('unit.rate')}; break;
+    case 'rate': { const v=stat.power(u);           // 船全体の本/秒。序盤は小さいので小数を残す
+      r={n: v<100? v.toFixed(1) : fmt(Math.round(v)), u:t('unit.rate')}; break; }
     case 'engine': r={n:(stat.speed(u)*0.25).toFixed(1), u:t('unit.knot')}; break;
     case 'sonar':  r={n:'+'+Math.round((stat.sonar(u)/SONAR_BASE-1)*100)+'%', u:''}; break;
     case 'lure':   r = u.lure===0 ? {n:t('unit.none'), u:''}
@@ -978,6 +990,8 @@ function layoutCrew(){
   while(S.crew.length<onboard) S.crew.push({pal:rint(0,2), cd:rnd(0,.7), pose:0, pt:0, row:0, si:0,
     lineLen:rint(8,13), lineSlant:rnd(-2.4,2.4)});
   while(S.crew.length>onboard) S.crew.pop();
+  const {q,rem}=rodSplit();                      // 前のほうの rem 人が1本多く持つ
+  for(let k=0;k<S.crew.length;k++) S.crew[k].rod = q + (k<rem?1:0);
   const order=[], ns=b.seatX.length, mid=(ns-1)/2;
   const byCenter=[];
   for(let i=0;i<ns;i++) byCenter.push(i);
@@ -1000,7 +1014,7 @@ function placeCrew(){
 
 /* ================= 漁 ================= */
 function updateFishing(dt){
-  const B=S.boat, rx=stat.rx(), ry=stat.ry(), rate=stat.rate()*(S.fever?FV_RATE:1);
+  const B=S.boat, rx=stat.rx(), ry=stat.ry(), base=BARE*(S.fever?FV_RATE:1);
   const up=[], dn=[];
   for(const s of S.schools){
     if(Math.abs(s.cx-B.x)>rx+s.rx*s.k+14 || Math.abs(s.cy-B.y)>ry+s.rx*s.k+14) continue;
@@ -1027,7 +1041,7 @@ function updateFishing(dt){
     }
     const o=src[bi]; src.splice(bi,1);
     doCatch(fm,o);
-    fm.cd=(1/rate)*rnd(.82,1.18);
+    fm.cd=(1/(base*Math.pow(ROD,fm.rod||0)))*rnd(.82,1.18);
     if(S.mode!=='play') return;
   }
 }
@@ -1320,16 +1334,21 @@ function drawLines(){
   const by0=VH/2+bobPx, HULL_BOT=4;
   for(const fm of S.crew){
     if(fm.pose===1) continue;
-    const x0=Math.round(VW/2+fm.tipx), y0=Math.round(VH/2+fm.tipy)+bobPx;
-    const dir=fm.row===0?1:-1, len=fm.lineLen, sl=fm.lineSlant;
-    let lx=x0, ly=y0;
-    for(let i=1;i<=len;i++){
-      ly=y0+dir*i; lx=x0+Math.round(sl*i/len);
-      ctx.fillStyle=(ly-by0>HULL_BOT||dir<0)?'rgba(216,232,240,.5)':'rgba(216,232,240,.2)';
+    const dir=fm.row===0?1:-1;
+    const nrod=Math.min(fm.rod||0, 5);             // 素手でも1本。竿の数だけ増える
+    for(let k=0;k<=nrod;k++){
+      const x0=Math.round(VW/2+fm.tipx)+(k?((k&1)?-((k+1)>>1):((k+1)>>1)):0);
+      const y0=Math.round(VH/2+fm.tipy)+bobPx-(k?((k+1)>>1):0);
+      const len=fm.lineLen-k, sl=fm.lineSlant+k*1.3*(k&1?-1:1);
+      let lx=x0, ly=y0;
+      for(let i=1;i<=len;i++){
+        ly=y0+dir*i; lx=x0+Math.round(sl*i/len);
+        ctx.fillStyle=(ly-by0>HULL_BOT||dir<0)?'rgba(216,232,240,.5)':'rgba(216,232,240,.2)';
+        ctx.fillRect(lx,ly,1,1);
+      }
+      ctx.fillStyle='rgba(240,250,255,.8)';
       ctx.fillRect(lx,ly,1,1);
     }
-    ctx.fillStyle='rgba(240,250,255,.8)';
-    ctx.fillRect(lx,ly,1,1);
   }
   ctx.strokeStyle='rgba(236,247,252,.8)'; ctx.lineWidth=1;
   for(const p of S.parts){
