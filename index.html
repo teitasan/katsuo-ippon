@@ -1211,23 +1211,28 @@ function updateParts(dt){
 }
 /* 入れ食い中だけ、群れが水面で跳ねる（ナブラ）。判定には一切関わらない */
 const BOIL_MAX=160, BOIL_RATE=340;   // 同時に出る上限と、1秒あたりに跳ねる数
+const BOIL_R=120;                    // 船からこの距離までの魚だけが跳ねる（縦は海の見え方に合わせて潰す）
 function spawnBoil(dt){
   if(!S.fever || S.boil.length>=BOIL_MAX) return;
   const B=S.boat;
   S.boilAcc += dt*(REDUCE?BOIL_RATE*0.3:BOIL_RATE);
   let n=S.boilAcc|0; if(n<=0) return;
   S.boilAcc-=n;
-  const near=[];                                 // 画面の外では跳ねなくていい
+  const cand=[], ry=BOIL_R*.62;
   for(const s of S.schools){
     if(s.alive<=0) continue;
-    if(Math.abs(s.cx-B.x)>VW/2+70 || Math.abs(s.cy-B.y)>VH/2+70) continue;
-    near.push(s);
+    const reach=s.rx*s.k+BOIL_R;
+    if(Math.abs(s.cx-B.x)>reach || Math.abs(s.cy-B.y)>reach) continue;
+    const fs=s.fish;
+    for(let i=0;i<fs.length;i++){
+      const f=fs[i]; if(!f.alive) continue;
+      const ex=(f.wx-B.x)/BOIL_R, ey=(f.wy-B.y)/ry;
+      if(ex*ex+ey*ey<=1) cand.push(f);
+    }
   }
-  if(!near.length) return;
+  if(!cand.length) return;
   while(n-->0 && S.boil.length<BOIL_MAX){
-    const s=near[rint(0,near.length-1)];
-    const f=s.fish[rint(0,s.fish.length-1)];
-    if(!f || !f.alive) continue;
+    const f=cand[rint(0,cand.length-1)];
     S.boil.push({x:f.wx+rnd(-2,2), y:f.wy+rnd(-1,1), t:0, life:rnd(.26,.42), k:rnd(.7,1.25), d:Math.random()<.5?1:-1});
   }
 }
