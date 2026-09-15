@@ -357,12 +357,12 @@ ja:{
  'hud.time':'ノコリ','hud.catch':'ギョカク','hud.catchUnit':'本','hud.next':'NEXT',
  'hud.fever':'入れ食い','hud.round':'{n}連',
  'pick.eyebrow':'タイリョウ','pick.head':'どれを積む？',
- 'up.crew.name':'漁師','up.crew.short':'漁師','up.crew.fl':'漁師が3人増える。釣り座が空いていなければ待機に回る。',
- 'up.hull.name':'船体','up.hull.short':'船体','up.hull.fl':'船が大きくなり、釣り座と漁獲範囲が広がる。',
- 'up.rate.name':'釣具','up.rate.short':'釣具','up.rate.fl':'竿が1本増える。手が足りなければ1人で3本まで持つ。',
- 'up.engine.name':'機関','up.engine.short':'機関','up.engine.fl':'船の移動速度が上がる。',
- 'up.sonar.name':'魚群探知機','up.sonar.short':'魚探','up.sonar.fl':'映る範囲が広がり、その中に宝箱が1つ流れ着く。入れ食いも当たりやすくなる。',
- 'up.lure.name':'集魚装置','up.lure.short':'集魚','up.lure.fl':'魚群が船のほうへ寄ってくる。入れ食いが1回ぶん長くなる。',
+ 'up.crew.name':'漁師','up.crew.short':'漁師','up.crew.fl':'漁師が3人増える<br>釣り座が空くまで待機',
+ 'up.hull.name':'船体','up.hull.short':'船体','up.hull.fl':'船が大きくなる<br>釣り座と漁獲範囲が広がる',
+ 'up.rate.name':'釣具','up.rate.short':'釣具','up.rate.fl':'釣りの効率が上がる',
+ 'up.engine.name':'機関','up.engine.short':'機関','up.engine.fl':'船の移動速度が上がる',
+ 'up.sonar.name':'魚群探知機','up.sonar.short':'魚探','up.sonar.fl':'ミニマップに<br>映る範囲が広がる',
+ 'up.lure.name':'集魚装置','up.lure.short':'集魚','up.lure.fl':'魚群が船に寄ってくる<br>入れ食いの時間が長くなる',
  'pick.lvCrew':'漁師 +3人','pick.lv':'Lv{a} → Lv{b}',
  'pick.efCrew':'うち待機 {a}人　釣り座 {b}人','pick.efBerth':'釣り座 {b}人',
  'pick.efHull':'{a}t → {b}t船',
@@ -385,12 +385,12 @@ en:{
  'hud.time':'TIME','hud.catch':'CATCH','hud.catchUnit':'','hud.next':'NEXT',
  'hud.fever':'ON FIRE','hud.round':'CHAIN {n}',
  'pick.eyebrow':'BIG CATCH','pick.head':'What comes aboard?',
- 'up.crew.name':'Crew','up.crew.short':'Crew','up.crew.fl':'Three more hands. They wait ashore if no berth is free.',
- 'up.hull.name':'Hull','up.hull.short':'Hull','up.hull.fl':'A bigger boat: more berths and a wider catch area.',
- 'up.rate.name':'Tackle','up.rate.short':'Tackle','up.rate.fl':'One more pole. Short-handed, a hand works up to three.',
- 'up.engine.name':'Engine','up.engine.short':'Engine','up.engine.fl':'The boat moves faster.',
- 'up.sonar.name':'Sonar','up.sonar.short':'Sonar','up.sonar.fl':'A wider scope, with a crate drifting in somewhere inside it. Runs on fire start more often too.',
- 'up.lure.name':'Chum Rig','up.lure.short':'Chum','up.lure.fl':'Schools drift toward the boat, and each run on fire lasts longer.',
+ 'up.crew.name':'Crew','up.crew.short':'Crew','up.crew.fl':'Three more hands<br>They stand by if no berth is free',
+ 'up.hull.name':'Hull','up.hull.short':'Hull','up.hull.fl':'A bigger boat<br>More berths and a wider catch area',
+ 'up.rate.name':'Tackle','up.rate.short':'Tackle','up.rate.fl':'Fishing gets more efficient',
+ 'up.engine.name':'Engine','up.engine.short':'Engine','up.engine.fl':'The boat moves faster',
+ 'up.sonar.name':'Sonar','up.sonar.short':'Sonar','up.sonar.fl':'A wider scope on the minimap',
+ 'up.lure.name':'Chum Rig','up.lure.short':'Chum','up.lure.fl':'Schools come to the boat<br>Runs on fire last longer',
  'pick.lvCrew':'+3 crew','pick.lv':'Lv{a} → Lv{b}',
  'pick.efCrew':'{a} standing by · {b} berths','pick.efBerth':'{b} berths',
  'pick.efHull':'{a}t → {b}t boat',
@@ -1694,7 +1694,7 @@ function showCards(){
       ef=(r0?fmtDist(r0):'なし')+' → '+fmtDist(stat.lureR(nu)*M_PER_PX);
     }
     if(ef){ const e=document.createElement('div'); e.className='ef'; e.textContent=ef; d.append(e); }
-    const fl=document.createElement('div'); fl.className='fl'; fl.textContent=t('up.'+u.id+'.fl'); d.append(fl);
+    const fl=document.createElement('div'); fl.className='fl'; fl.innerHTML=t('up.'+u.id+'.fl'); d.append(fl);  // <br> を入れるため
     d.addEventListener('click',()=>choose(idx));
     d.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){e.preventDefault();choose(idx);} });
     cardsEl.appendChild(d);
