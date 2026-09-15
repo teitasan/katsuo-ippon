@@ -356,7 +356,7 @@ ja:{
  'up.hull.name':'船体','up.hull.short':'船体','up.hull.fl':'船が大きくなり、釣り座と漁獲範囲が広がる。',
  'up.rate.name':'釣具','up.rate.short':'釣具','up.rate.fl':'竿が1本増える。手が足りなければ1人で3本まで持つ。',
  'up.engine.name':'機関','up.engine.short':'機関','up.engine.fl':'船の移動速度が上がる。',
- 'up.sonar.name':'魚群探知機','up.sonar.short':'魚探','up.sonar.fl':'魚探に映る範囲が広がる。少ない釣果でも入れ食いが続きやすくなる。',
+ 'up.sonar.name':'魚群探知機','up.sonar.short':'魚探','up.sonar.fl':'映る範囲が広がり、その中に宝箱が1つ流れ着く。入れ食いも当たりやすくなる。',
  'up.lure.name':'集魚装置','up.lure.short':'集魚','up.lure.fl':'魚群が船のほうへ寄ってくる。入れ食いが1回ぶん長くなる。',
  'pick.lvCrew':'漁師 +3人','pick.lv':'Lv{a} → Lv{b}',
  'pick.efCrew':'うち待機 {a}人　釣り座 {b}人','pick.efBerth':'釣り座 {b}人',
@@ -384,7 +384,7 @@ en:{
  'up.hull.name':'Hull','up.hull.short':'Hull','up.hull.fl':'A bigger boat: more berths and a wider catch area.',
  'up.rate.name':'Tackle','up.rate.short':'Tackle','up.rate.fl':'One more pole. Short-handed, a hand works up to three.',
  'up.engine.name':'Engine','up.engine.short':'Engine','up.engine.fl':'The boat moves faster.',
- 'up.sonar.name':'Sonar','up.sonar.short':'Sonar','up.sonar.fl':'The scope shows more sea, and keeps a run alive on a thinner haul.',
+ 'up.sonar.name':'Sonar','up.sonar.short':'Sonar','up.sonar.fl':'A wider scope, with a crate drifting in somewhere inside it. Runs on fire start more often too.',
  'up.lure.name':'Chum Rig','up.lure.short':'Chum','up.lure.fl':'Schools drift toward the boat, and each run on fire lasts longer.',
  'pick.lvCrew':'+3 crew','pick.lv':'Lv{a} → Lv{b}',
  'pick.efCrew':'{a} standing by · {b} berths','pick.efBerth':'{b} berths',
@@ -746,7 +746,7 @@ const UPG=[
   {id:'hull', max:5, lv:()=>S.up.hull, apply:()=>{S.up.hull=Math.min(5,S.up.hull+1);}},
   {id:'rate', max:10, lv:()=>S.up.rate, apply:()=>{S.up.rate++;}},
   {id:'engine', max:10, lv:()=>S.up.engine, apply:()=>{S.up.engine++;}},
-  {id:'sonar', max:6, lv:()=>S.up.sonar, apply:()=>{S.up.sonar++;}},
+  {id:'sonar', max:6, lv:()=>S.up.sonar, apply:()=>{S.up.sonar++; dropChest();}},
   {id:'lure', max:8, lv:()=>S.up.lure, apply:()=>{S.up.lure++;}}
 ];
 const UPG_BY={}; UPG.forEach(u=>UPG_BY[u.id]=u);
@@ -1110,6 +1110,10 @@ function levelUp(){
   levelUp._t=setTimeout(()=>{ if(S.mode==='levelup') showCards(); }, 340);
 }
 function applyUpgrade(u){ u.apply(); layoutCrew(); }
+function dropChest(){                            // 魚探を積んだ瞬間、広がった範囲の中に1つ流れ着く
+  const B=S.boat, a=rnd(0,TAU), d=stat.sonar()*rnd(.35,.9);
+  S.chests.push({x:B.x+Math.cos(a)*d, y:B.y+Math.sin(a)*d, life:52, ph:rnd(0,TAU)});
+}
 function openChest(){
   const n = Math.random()<.70?1:(Math.random()<.73?3:5);
   const got=[];
