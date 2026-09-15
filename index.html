@@ -1110,8 +1110,9 @@ function levelUp(){
   levelUp._t=setTimeout(()=>{ if(S.mode==='levelup') showCards(); }, 340);
 }
 function applyUpgrade(u){ u.apply(); layoutCrew(); }
-function dropChest(){                            // 魚探を積んだ瞬間、広がった範囲の中に1つ流れ着く
-  const B=S.boat, a=rnd(0,TAU), d=stat.sonar()*rnd(.35,.9);
+function dropChest(){                            // 魚探を積んだ瞬間に1つ流れ着く
+  // 画面の外（対角で275px）に出す。魚探に映らないと探しようがないので範囲内には収める
+  const B=S.boat, a=rnd(0,TAU), d=Math.min(rnd(300,420), Math.max(300, stat.sonar()));
   S.chests.push({x:B.x+Math.cos(a)*d, y:B.y+Math.sin(a)*d, life:52, ph:rnd(0,TAU)});
 }
 function openChest(){
