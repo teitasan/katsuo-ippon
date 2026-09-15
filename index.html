@@ -1210,7 +1210,7 @@ function updateParts(dt){
   spawnBoil(dt);
 }
 /* 入れ食い中だけ、群れが水面で跳ねる（ナブラ）。判定には一切関わらない */
-const BOIL_MAX=80, BOIL_RATE=170;    // 同時に出る上限と、1秒あたりに跳ねる数
+const BOIL_MAX=160, BOIL_RATE=340;   // 同時に出る上限と、1秒あたりに跳ねる数
 function spawnBoil(dt){
   if(!S.fever || S.boil.length>=BOIL_MAX) return;
   const B=S.boat;
