@@ -781,7 +781,7 @@ const FV_ENTRY=0.006;                // 1本あたりの当たり。突入も継
 const FV_SONAR_ODDS=0.18;            // 魚探Lv1つあたり当たりを何割上げるか（Lv6で約1.9倍）
 const FV_LOCK=4;                     // 終了後この秒数は抽選をしない
 const FV_MINFISH=45;                 // 竿の下にこれだけ魚がいないと突入しない（群れの尻尾で当たらないように）
-const FV_SEC=10;                     // 当たってから切れるまでの秒数
+const FV_SEC=3;                      // 当たってから切れるまでの秒数
 const FV_LURE_SEC=1.0;               // 集魚Lv1つあたりの延長
 const FV_FADE=1.6;                   // 残りこの秒数から縁が引きはじめる
 const FV_RATE=1.2;                   // 入れ食い中の釣り速度の倍率。計算しきった漁獲力に掛ける
@@ -820,9 +820,9 @@ function fmtDist(m){ return m>=1000 ? (m/1000).toFixed(2)+t('unit.km') : Math.ro
 function valOf(id,u){
   let r={n:'',u:''};
   switch(id){
-    case 'crew': {
-      const s0=stat.seats(u), act=Math.min(u.crew,s0), cap=u.crew>=s0;
-      r={n:u.crew+'/'+act, h:u.crew+'/'+(cap?'<span class="cap">'+act+'</span>':act), u:t('unit.crew'), cap};
+    case 'crew': {                       // 素直に総人数。釣り座からあふれている間だけ赤
+      const over=u.crew>stat.seats(u);
+      r={n:String(u.crew), h:over?'<span class="cap">'+u.crew+'</span>':String(u.crew), u:t('unit.crew'), cap:over};
       break;
     }
     case 'hull':   r={n:String(stat.seats(u)), u:t('unit.crew')}; break;
