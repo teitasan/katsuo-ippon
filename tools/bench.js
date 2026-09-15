@@ -65,7 +65,8 @@ function one(policy, opt){
   for(let i=0;i<steps;i++){
     const p = fvEntry();
     const on = cycle>0 ? ((i*DT) % cycle) < onSec : true;
-    const rate = Math.min(stat.power(S.up) * (fever ? FV_RATE : 1), opt.supply);
+    /* 入れ食いは獲れた量にかかるので、海の供給で頭打ちにしたあとに乗せる */
+    const rate = Math.min(stat.power(S.up), opt.supply) * (fever ? FV_GAIN : 1);
     const k = on ? rate * DT * (cycle>0?1:opt.uptime) : 0;
     score += k; prog += k;
     if(fever){

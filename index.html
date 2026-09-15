@@ -779,7 +779,9 @@ const FV_MINFISH=45;                 // 竿の下にこれだけ魚がいない�
 const FV_SEC=10;                     // 当たってから切れるまでの秒数
 const FV_LURE_SEC=1.0;               // 集魚Lv1つあたりの延長
 const FV_FADE=1.6;                   // 残りこの秒数から縁が引きはじめる
-const FV_RATE=1.1;                   // 入れ食い中の釣り速度の倍率。ここだけがスコアに効く
+/* 入れ食いは釣り「速さ」ではなく獲れた「量」にかける。竿の下の魚が先に尽きるビルドだと
+   速さの倍率は丸ごと捨てられてしまう（漁獲力2,560でも実測15本/秒）。量にかければ必ず効く */
+const FV_GAIN=1.2;                   // 入れ食い中の1本の価値
 const FV_STOP=0.12;                  // 突入の瞬間に世界を止める秒数
 let REDUCE=false;
 try{ REDUCE=matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){}
@@ -1018,7 +1020,7 @@ function placeCrew(){
 
 /* ================= 漁 ================= */
 function updateFishing(dt){
-  const B=S.boat, rx=stat.rx(), ry=stat.ry(), base=BARE*(S.acc||1)*(S.fever?FV_RATE:1);
+  const B=S.boat, rx=stat.rx(), ry=stat.ry(), base=BARE*(S.acc||1);
   const up=[], dn=[];
   for(const s of S.schools){
     if(Math.abs(s.cx-B.x)>rx+s.rx*s.k+14 || Math.abs(s.cy-B.y)>ry+s.rx*s.k+14) continue;
@@ -1050,7 +1052,8 @@ function updateFishing(dt){
   }
 }
 function doCatch(fm,o){
-  o.f.alive=false; o.s.alive--; S.totalFish--; S.score++; S.prog++;
+  o.f.alive=false; o.s.alive--; S.totalFish--;
+  const gain=S.fever?FV_GAIN:1; S.score+=gain; S.prog+=gain;
   fm.pose=1; fm.pt=.28; placeCrew();
   S.parts.push({x:o.f.wx, y:o.f.wy, x0:o.f.wx, y0:o.f.wy, t:0, dur:.28, a:o.f.a, d:o.f.dd, fm});
   S.rings.push({x:o.f.wx, y:o.f.wy, t:0});
@@ -1591,8 +1594,8 @@ function updateHUD(){
   }
   setTxt(elTime, rem>10 ? Math.floor(rem/60)+':'+String(Math.floor(rem%60)).padStart(2,'0') : rem.toFixed(1));
   elClock.classList.toggle('warn', rem<=15);
-  setTxt(elScore, fmt(S.score));
-  setTxt(elLvNum, S.prog+' / '+S.need);
+  setTxt(elScore, fmt(Math.floor(S.score)));
+  setTxt(elLvNum, Math.floor(S.prog)+' / '+S.need);
   elFill.style.width=clamp(S.prog/S.need*100,0,100)+'%';
   UPG_IDS.forEach(id=>{
     const u=UPG_BY[id];
@@ -1689,10 +1692,11 @@ const RANKS=[1500,3000,5000,7000,10000,1e9];
 function endGame(){
   S.mode='result'; S.started=false; hud.classList.remove('on');
   S.fever=false; S.fvT=0; elFever.style.opacity='0'; elFvBadge.classList.remove('on'); elFvBadge.style.transform=''; elFvBig.classList.remove('go');
-  const nb=S.score>S.best;
-  if(nb){ S.best=S.score; saveBest(S.best); }
-  document.getElementById('rscore').innerHTML=fmt(S.score)+'<span>'+t('res.scoreUnit')+'</span>';
-  const ri=RANKS.findIndex(x=>S.score<x)+1;
+  const total=Math.floor(S.score);
+  const nb=total>S.best;
+  if(nb){ S.best=total; saveBest(S.best); }
+  document.getElementById('rscore').innerHTML=fmt(total)+'<span>'+t('res.scoreUnit')+'</span>';
+  const ri=RANKS.findIndex(x=>total<x)+1;
   document.getElementById('rrank').innerHTML=t('rank.'+ri)+'<small>'+t('rank.'+ri+'.fl')+'</small>';
   document.getElementById('rbestwrap').innerHTML = nb? '<span class="newbest">'+t('res.newbest')+'</span>':'';
   const p0=stat.power(S.start), p1=stat.power(S.up);
