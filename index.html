@@ -834,20 +834,14 @@ function rodSplit(u){                // n人に rods 本を配る。3本目ま�
   const used=Math.min(R, n*ROD_MAX), over=R-used;
   return {n, q:(used/n)|0, rem:used%n, over};
 }
-/* 舵は従来どおり「止まるか巡航か」。画面の縁までカーソルを持っていったぶんだけ加速する。
-   加速したぶんだけ釣り効率が落ちて、最高速では0になる。巡航までは常に100% */
+/* 舵は従来どおり「止まるか巡航か」。カーソルを画面の縁に着けている間だけ倍速になり、
+   そのあいだは一切釣れない。中間は作らない（説明が要らないように二択にする） */
 const NAV_DEAD=0.045;                // 画面幅に対する停船半径。従来と同じ
-const NAV_FAST=0.70;                 // 縁までの距離のこの割合から外が加速帯
-const NAV_BOOST=2.2;                 // 縁で目一杯。この倍率
-const NAV_EFF_P=1.0;                 // 効率の落ち方。1で直線、大きいほど後半まで粘る
-function navThrottle(u){             // 縁までを1とした距離 → 巡航を1とした速度
-  return u<=NAV_FAST ? 1 : 1+(NAV_BOOST-1)*(u-NAV_FAST)/(1-NAV_FAST);
-}
-function navEff(){                   // 巡航までは100%、そこから最高速へ向けて0%まで
-  const sp=stat.speed(); if(sp<=0) return 1;
-  const over=(S.boat.sp/sp-1)/(NAV_BOOST-1);
-  return over<=0 ? 1 : Math.max(0, 1-Math.pow(Math.min(1,over), NAV_EFF_P));
-}
+const NAV_FAST=0.86;                 // 縁までの距離のこの割合より外で倍速
+const NAV_BOOST=2.0;                 // 倍速の倍率
+function navThrottle(u){ return u<NAV_FAST ? 1 : NAV_BOOST; }
+function navBoost(){ return (S.dir.t||1)>1.001; }   // 縁に着けている間
+function navEff(){ return navBoost() ? 0 : 1; }     // そのあいだは竿を上げている
 const stat = {
   rate:(u)=>stat.power(u)/Math.max(1,rodSplit(u).n),   // 1人あたりの平均。表示には使わない
   speed:(u)=>{u=u||S.up; return 52*Math.pow(1.12,u.engine)*(1+0.045*(u.hull-1));},
@@ -1213,20 +1207,34 @@ function updateBoat(dt){
   if(Math.abs(B.vx)>4) B.face=B.vx>0?1:-1;
   B.bob+=dt*2.4;
   placeCrew();
+  const b=boats[S.up.hull-1];
   // 航跡
   const spd=Math.hypot(B.vx,B.vy);
-  if(spd>8 && Math.random()<dt*38){
-    const b=boats[S.up.hull-1], back=-B.face*(b.len/2);
-    S.wake.push({x:B.x+back+rnd(-4,4), y:B.y+rnd(-2,3), t:0, r:rnd(1,2.4)});
+  const boost=navBoost();
+  if(spd>8 && Math.random()<dt*(boost?110:38)){
+    const back=-B.face*(b.len/2);
+    S.wake.push({x:B.x+back+rnd(-6,6), y:B.y+rnd(-3,4), t:0, r:boost?rnd(2,4.5):rnd(1,2.4)});
   }
-  // 散水（活餌を撒く仕掛け）
-  S.sprayAcc+=S.crew.length*6*dt;
-  let n=Math.min(6,Math.floor(S.sprayAcc));
-  S.sprayAcc-=n;
-  while(n-->0 && S.crew.length){
-    const fm=pick(S.crew);
-    S.spray.push({x:B.x+fm.wx+rnd(-2,2), y:B.y+fm.ly+1,
-      vx:rnd(-6,6), vy:(fm.row===0?1:-1)*rnd(16,30), t:0, life:rnd(.3,.55)});
+  if(boost){
+    // 倍速中は竿を上げている。代わりに舳先が盛大に割れる
+    S.sprayAcc+=120*dt;
+    let n=Math.min(12,Math.floor(S.sprayAcc)); S.sprayAcc-=n;
+    const fx=B.face*(b.len/2-2);
+    while(n-->0){
+      const side=Math.random()<.5?-1:1;
+      S.spray.push({x:B.x+fx+rnd(-3,3), y:B.y+rnd(-1,2), big:1,
+        vx:B.face*rnd(12,40)+rnd(-8,8), vy:side*rnd(12,30), t:0, life:rnd(.35,.7)});
+    }
+  }else{
+    // 散水（活餌を撒く仕掛け）
+    S.sprayAcc+=S.crew.length*6*dt;
+    let n=Math.min(6,Math.floor(S.sprayAcc));
+    S.sprayAcc-=n;
+    while(n-->0 && S.crew.length){
+      const fm=pick(S.crew);
+      S.spray.push({x:B.x+fm.wx+rnd(-2,2), y:B.y+fm.ly+1,
+        vx:rnd(-6,6), vy:(fm.row===0?1:-1)*rnd(16,30), t:0, life:rnd(.3,.55)});
+    }
   }
 }
 
@@ -1413,11 +1421,12 @@ function drawBoat(){
 }
 function drawSpray(){
   const B=S.boat, ox=VW/2-B.x, oy=VH/2-B.y;
-  ctx.fillStyle='rgba(226,243,250,.7)';
   for(const s of S.spray){
     const u=s.t/s.life;
-    ctx.globalAlpha=(1-u)*.8;
-    ctx.fillRect(Math.round(s.x+ox), Math.round(s.y+oy), 1, 1);
+    ctx.globalAlpha=(1-u)*(s.big?1:.8);
+    ctx.fillStyle=s.big?'#f2fbff':'rgba(226,243,250,.7)';
+    const k=s.big?2:1;
+    ctx.fillRect(Math.round(s.x+ox), Math.round(s.y+oy), k, k);
   }
   ctx.globalAlpha=1;
 }
