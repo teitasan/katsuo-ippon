@@ -258,6 +258,17 @@
     display:grid; place-items:center; color:var(--dim); font-size:1em;
     border:1px solid var(--line); background:rgba(10,31,46,.7); border-radius:2px}
   .mute:hover{color:var(--foam)}
+  /* Esc または左上のボタンで開く。開いている間は時間も止まる */
+  #menu .box{text-align:center; min-width:min(18em,80%)}
+  .mhd{font-size:.78em; letter-spacing:.5em; color:var(--dim); margin-bottom:1.4em}
+  .mrow{display:flex; flex-direction:column; gap:.7em}
+  .mbtn{padding:.65em 1.4em; font-size:.95em; letter-spacing:.2em; color:var(--foam);
+    border:1px solid var(--line); background:rgba(10,31,46,.7); border-radius:2px;
+    transition:border-color .12s ease, color .12s ease}
+  .mbtn:hover{border-color:var(--gold); color:#fff}
+  .mbtn b{float:right; font-weight:700; color:var(--gold); letter-spacing:.1em}
+  .mbtn.off b{color:#4a6577}
+  .mnote{margin-top:1.3em; font-size:.7em; letter-spacing:.14em; color:var(--dim)}
   @media (max-width:640px){
     .lvbar{width:40%}
     .stats{max-width:52%}
@@ -299,7 +310,7 @@
     </div>
 
     <div class="fever" id="fever"></div>
-    <button class="mute" id="mute" title="音">♪</button>
+    <button class="mute" id="mute" title="メニュー">☰</button>
     <div id="perfwrap"><div id="perf" hidden></div>
       <button class="dbgbtn" id="dbgFever" hidden>入れ食い</button></div>
 
@@ -319,6 +330,18 @@
         <div class="lvhd" id="lblPickEyebrow">タイリョウ</div>
         <div class="lvsub disp" id="lblPickHead">どれを積む？</div>
         <div class="cards" id="cards"></div>
+      </div>
+    </div>
+
+    <div class="scrim" id="menu">
+      <div class="box">
+        <div class="mhd" id="lblMenu">キュウケイ</div>
+        <div class="mrow">
+          <button class="mbtn" id="mSound">音<b id="mSoundV">ON</b></button>
+          <button class="mbtn" id="mRetry">やり直す</button>
+          <button class="mbtn" id="mClose">閉じる</button>
+        </div>
+        <div class="mnote" id="lblMenuNote">Esc</div>
       </div>
     </div>
 
@@ -377,7 +400,8 @@ ja:{
  'rank.5':'竿頭','rank.5.fl':'船が一本釣りの機械になった。',
  'rank.6':'伝説の竿頭','rank.6.fl':'この海の話は語り草になる。',
  'res.grow':'漁獲力 {a} → {b} 本/秒','res.growX':'×{c}','res.newbest':'自己ベスト更新',
- 'res.from':'{v} から','res.retry':'もう一度','res.best':'自己ベスト {n}本'
+ 'res.from':'{v} から','res.retry':'もう一度','res.best':'自己ベスト {n}本',
+ 'menu.head':'キュウケイ','menu.sound':'音','menu.on':'ON','menu.off':'OFF','menu.retry':'やり直す','menu.close':'閉じる'
 },
 en:{
  'title.h1a':'FISH','title.h1b':'ON!','title.sub':'~Pole & Line',
@@ -405,7 +429,8 @@ en:{
  'rank.5':'Top Rod','rank.5.fl':'The boat has become a machine.',
  'rank.6':'Legendary Top Rod','rank.6.fl':"They'll tell stories about this trip.",
  'res.grow':'RATE {a} → {b} fish/s','res.growX':'×{c}','res.newbest':'NEW BEST',
- 'res.from':'from {v}','res.retry':'ONE MORE','res.best':'BEST {n}'
+ 'res.from':'from {v}','res.retry':'ONE MORE','res.best':'BEST {n}',
+ 'menu.head':'PAUSED','menu.sound':'Sound','menu.on':'ON','menu.off':'OFF','menu.retry':'RESTART','menu.close':'CLOSE'
 }};
 let LANG='ja';                 // Playables では SDK の getLanguage で決める
 function t(k,p){
@@ -763,7 +788,7 @@ const S={
   mode:'play', started:false, t:0, score:0, best:0, level:1, need:9, prog:0,
   boat:{x:0,y:0,vx:0,vy:0,hd:0,sp:0,face:1,bob:0},
   stick:{id:-1, on:false, ax:0, ay:0, tx:0, ty:0, f:0},
-  dir:{x:0,y:0,t:1}, aim:{x:0,y:0},
+  dir:{x:0,y:0,t:1}, aim:{x:0,y:0}, menu:false,
   schools:[], chests:[], crew:[], parts:[], wake:[], rings:[], spray:[], flash:[], boil:[], boilAcc:0,
   up:{crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1},
   seatX:[], seats:0, acc:1, chestT:26, sprayAcc:0, start:{crew:2,hull:1,rate:0,rods:0,engine:0,sonar:1,lure:1}, totalFish:0, choices:[], caught:0,
@@ -1752,13 +1777,14 @@ function reset(){
   S.up={crew:2,hull:1,rate:0,rods:0,engine:0,sonar:1,lure:1};
   S.start={crew:2,hull:1,rate:0,rods:0,engine:0,sonar:1,lure:1};
   Object.assign(S.boat,{x:0,y:0,vx:0,vy:0,hd:0,sp:0,face:1,bob:0});
-  S.dir.x=0; S.dir.y=0; S.dir.t=1;
+  S.dir.x=0; S.dir.y=0; S.dir.t=1; S.menu=false;
   S.stick.id=-1; S.stick.on=false; S.stick.f=0;
   layoutCrew();
   S.schools.push(makeSchool(175,rnd(-28,28),130)); S.totalFish+=130;
 }
 function startGame(){          // リザルトからのやり直し
   audioInit(); reset();
+  scrMenu.classList.remove('on');
   S.mode='play'; S.started=true;
   promptEl.classList.add('gone');
   scrResult.classList.remove('on');
@@ -1904,9 +1930,28 @@ function tickCountdown(){
   const rem=Math.ceil(GAME_TIME-S.t);
   if(rem<lastSec){ lastSec=rem; if(rem<=5&&rem>0) tone(1046,.09,'square',.06); }
 }
-const muteBtn=document.getElementById('mute');
-muteBtn.addEventListener('click',()=>{ muted=!muted; muteBtn.textContent=muted?'♪̸':'♪';
-  muteBtn.style.color=muted?'#4a6577':''; });
+/* ================= メニュー ================= */
+const scrMenu=document.getElementById('menu'), muteBtn=document.getElementById('mute');
+const mSoundV=document.getElementById('mSoundV');
+function paintSound(){
+  mSoundV.textContent=t(muted?'menu.off':'menu.on');
+  document.getElementById('mSound').classList.toggle('off', muted);
+}
+function openMenu(v){
+  if(S.mode!=='play') return;
+  S.menu=v;
+  scrMenu.classList.toggle('on', v);
+  if(v){ paintSound(); document.getElementById('mSound').focus({preventScroll:true}); }
+}
+muteBtn.addEventListener('click',e=>{ e.stopPropagation(); audioInit(); openMenu(!S.menu); });
+document.getElementById('mSound').addEventListener('click',()=>{ muted=!muted; paintSound(); });
+document.getElementById('mRetry').addEventListener('click',()=>{ openMenu(false); startGame(); });
+document.getElementById('mClose').addEventListener('click',()=>openMenu(false));
+window.addEventListener('keydown',e=>{
+  if(e.key!=='Escape') return;
+  e.preventDefault();
+  if(S.mode==='play') openMenu(!S.menu);
+});
 
 /* ================= 負荷計測（Fキーで開閉） ================= */
 const elPerf=document.getElementById('perf');
@@ -1960,7 +2005,7 @@ function tick(now){
   S.shake=Math.max(0,S.shake-dt*3.4);
   if(S.burst) S.burst.t+=dt;
   if(S.freeze>0) S.freeze-=dt;                   // 止まっている間も閃光だけは進む
-  else if(S.mode==='play'){
+  else if(S.mode==='play' && !S.menu){
     if(S.started) S.t+=dt;
     updateBoat(dt); manageWorld(dt); updateSchools(dt);
     if(S.started){ updateFishing(dt); updateFever(dt); }
@@ -1984,6 +2029,9 @@ function applyLang(){
   set('fvlabel','hud.fever'); set('fvbig','hud.fever');
   elFvRound.textContent=t('hud.round',{n:Math.max(1,S.fvRound)});
   set('lblPickEyebrow','pick.eyebrow'); set('lblPickHead','pick.head'); set('lblResHead','res.head');
+  set('lblMenu','menu.head'); set('mRetry','menu.retry'); set('mClose','menu.close');
+  document.getElementById('mSound').firstChild.nodeValue=t('menu.sound');
+  paintSound();
   document.querySelectorAll('#stats .chip b[data-k]').forEach(b=>{ b.textContent=t(b.dataset.k); });
   document.getElementById('titlebest').textContent = S.best ? t('title.best',{n:fmt(S.best)}) : '';
   lastTxt={};
