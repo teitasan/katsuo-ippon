@@ -834,17 +834,14 @@ function rodSplit(u){                // n人に rods 本を配る。3本目ま�
   const used=Math.min(R, n*ROD_MAX), over=R-used;
   return {n, q:(used/n)|0, rem:used%n, over};
 }
-/* 舵はカーソルまでの距離がそのまま速度。内側ほど遅く、外側は従来の巡航より速い。
-   ただし巡航を超えたぶんだけ釣り効率が落ちて、最高速では0になる。
-   巡航までは常に100%なので、停船しないと釣れないという形にはしない */
-const NAV_DEAD=0.06;                 // 画面半径に対する割合。ここまでは停船
-const NAV_CRUISE=0.52;               // ここでちょうど従来の巡航速度
-const NAV_BOOST=2.2;                 // 目一杯でこの倍率
+/* 舵は従来どおり「止まるか巡航か」。画面の縁までカーソルを持っていったぶんだけ加速する。
+   加速したぶんだけ釣り効率が落ちて、最高速では0になる。巡航までは常に100% */
+const NAV_DEAD=0.045;                // 画面幅に対する停船半径。従来と同じ
+const NAV_FAST=0.70;                 // 縁までの距離のこの割合から外が加速帯
+const NAV_BOOST=2.2;                 // 縁で目一杯。この倍率
 const NAV_EFF_P=1.0;                 // 効率の落ち方。1で直線、大きいほど後半まで粘る
-function navThrottle(u){             // 正規化した距離 → 巡航を1とした速度
-  if(u<=NAV_DEAD) return 0;
-  const k=(u-NAV_DEAD)/(1-NAV_DEAD), c=(NAV_CRUISE-NAV_DEAD)/(1-NAV_DEAD);
-  return k<=c ? k/c : 1+(NAV_BOOST-1)*(k-c)/(1-c);
+function navThrottle(u){             // 縁までを1とした距離 → 巡航を1とした速度
+  return u<=NAV_FAST ? 1 : 1+(NAV_BOOST-1)*(u-NAV_FAST)/(1-NAV_FAST);
 }
 function navEff(){                   // 巡航までは100%、そこから最高速へ向けて0%まで
   const sp=stat.speed(); if(sp<=0) return 1;
@@ -1835,11 +1832,13 @@ function aimMouse(e){                      // PC：画面中央から見た向�
   beginRun();
   const r=frameEl.getBoundingClientRect();
   const dx=e.clientX-(r.left+r.width/2), dy=e.clientY-(r.top+r.height/2);
-  const m=Math.hypot(dx,dy), R=Math.max(1, r.height*0.46);   // ここで目一杯
-  const t=m>0 ? navThrottle(Math.min(1,m/R)) : 0;  // 中心ちょうどでも 0/0 を作らない
-  S.dir.t=t;
-  if(t<=0){ S.dir.x=0; S.dir.y=0; }
-  else { S.dir.x=dx/m; S.dir.y=dy/m; }
+  const m=Math.hypot(dx,dy);
+  if(m<=r.width*NAV_DEAD){ S.dir.x=0; S.dir.y=0; S.dir.t=0; return; }
+  // その向きで画面の縁までどれだけあるか。縁に着けた時にちょうど目一杯になる
+  const edge=Math.min(r.width/2*m/Math.max(1e-6,Math.abs(dx)),
+                      r.height/2*m/Math.max(1e-6,Math.abs(dy)));
+  S.dir.t=navThrottle(Math.min(1, m/edge));
+  S.dir.x=dx/m; S.dir.y=dy/m;
 }
 frameEl.addEventListener('pointerdown',e=>{
   if(e.pointerType==='mouse'){ aimMouse(e); return; }
@@ -1864,7 +1863,7 @@ frameEl.addEventListener('pointermove',e=>{
   }
   st.tx=st.ax+dx; st.ty=st.ay+dy;
   if(m>STICK_DEAD){ S.dir.x=dx/m; S.dir.y=dy/m; }   // 内側では舵を変えない
-  S.dir.t=navThrottle(m/STICK_R);                   // 倒した量がそのまま速度
+  S.dir.t = m<=STICK_DEAD ? 0 : navThrottle(Math.min(1, m/STICK_R));   // 目一杯倒すと加速
 });
 function endStick(e){
   if(e.pointerId===S.stick.id){ S.stick.id=-1; S.stick.on=false; }  // 離しても進路は維持
