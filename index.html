@@ -749,7 +749,7 @@ function buildSea(){
 const UPG=[
   {id:'crew', max:99, lv:()=>S.up.crew, apply:()=>{S.up.crew+=3;}},
   {id:'hull', max:5, lv:()=>S.up.hull, apply:()=>{S.up.hull=Math.min(5,S.up.hull+1);}},
-  {id:'rate', max:10, lv:()=>S.up.rate, apply:()=>{S.up.rate++;}},
+  {id:'rate', max:10, lv:()=>S.up.rate, apply:()=>{S.up.rods=(S.up.rods||0)+rodGrant(); S.up.rate++;}},
   {id:'engine', max:10, lv:()=>S.up.engine, apply:()=>{S.up.engine++;}},
   {id:'sonar', max:6, lv:()=>S.up.sonar, apply:()=>{S.up.sonar++; dropChest();}},
   {id:'lure', max:8, lv:()=>S.up.lure, apply:()=>{S.up.lure++;}}
@@ -766,7 +766,7 @@ const S={
   dir:{x:0,y:0}, aim:{x:0,y:0},
   schools:[], chests:[], crew:[], parts:[], wake:[], rings:[], spray:[], flash:[], boil:[], boilAcc:0,
   up:{crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1},
-  seatX:[], seats:0, acc:1, chestT:26, sprayAcc:0, start:{crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1}, totalFish:0, choices:[], caught:0,
+  seatX:[], seats:0, acc:1, chestT:26, sprayAcc:0, start:{crew:2,hull:1,rate:0,rods:0,engine:0,sonar:1,lure:1}, totalFish:0, choices:[], caught:0,
   rt:0, shake:0, freeze:0, pop:0, pops:[], burst:null, inRange:0,
   fvT:0, fvRound:0, fvLock:0, fvPulse:0, fever:false, chain:0
 };
@@ -795,10 +795,18 @@ const BARE=1.25;                     // 竿1本の1人あたり本/秒
 const ROD=4;                         // 追加の竿1本ぶんの倍率
 const ROD_MAX=2;                     // 1人が持てる追加の竿。元の1本と合わせて3本（両手＋口）が上限
 const ACC=2;                         // 全員が3本持ったあと、余った釣具1つぶんの加速
-function rodSplit(u){                // n人に N本を配る。3本目まで配ってから、余りは加速に回す
+/* 釣具1つで何本の竿が届くかは、積んだ時の稼働人数に比例する。
+   2〜5人なら1本、24人なら6本、32人なら8本。少ない人手なら1本ずつ重なって掛け算になり、
+   大所帯なら全員に行き渡る。積んだ時点で確定して S.up.rods に貯める（後から人が増えても減らない） */
+const ROD_FRAC=0.25;                 // 稼働人数のこの割合ぶんの竿が、釣具1つで届く
+function rodGrant(u){
   u=u||S.up;
-  const n=Math.max(1,Math.min(u.crew,stat.seats(u)));
-  const used=Math.min(u.rate, n*ROD_MAX), over=u.rate-used;
+  return Math.max(1, Math.round(Math.min(u.crew,stat.seats(u))*ROD_FRAC));
+}
+function rodSplit(u){                // n人に rods 本を配る。3本目まで配ってから、余りは加速に回す
+  u=u||S.up;
+  const n=Math.max(1,Math.min(u.crew,stat.seats(u))), R=u.rods||0;
+  const used=Math.min(R, n*ROD_MAX), over=R-used;
   return {n, q:(used/n)|0, rem:used%n, over};
 }
 const stat = {
@@ -840,7 +848,7 @@ function nextUp(id){
   const u=Object.assign({},S.up);
   if(id==='crew') u.crew+=3;
   else if(id==='hull') u.hull=Math.min(5,u.hull+1);
-  else u[id]++;
+  else { if(id==='rate') u.rods=(u.rods||0)+rodGrant(); u[id]++; }
   return u;
 }
 function loadBest(){ try{return parseInt(localStorage.getItem('ippon.best')||'0',10)||0;}catch(e){return 0;} }
@@ -1720,8 +1728,8 @@ function reset(){
   S.schools.length=0; S.chests.length=0; S.crew.length=0;
   S.parts.length=0; S.wake.length=0; S.rings.length=0; S.spray.length=0; S.flash.length=0; S.pops.length=0; S.boil.length=0; S.boilAcc=0;
   S.fvT=0; S.fvRound=0; S.fvLock=0; S.fvPulse=0; S.fever=false; S.chain=0; S.inRange=0; S.pop=0; S.shake=0; S.freeze=0; S.burst=null;
-  S.up={crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1};
-  S.start={crew:2,hull:1,rate:0,engine:0,sonar:1,lure:1};
+  S.up={crew:2,hull:1,rate:0,rods:0,engine:0,sonar:1,lure:1};
+  S.start={crew:2,hull:1,rate:0,rods:0,engine:0,sonar:1,lure:1};
   Object.assign(S.boat,{x:0,y:0,vx:0,vy:0,hd:0,sp:0,face:1,bob:0});
   S.dir.x=0; S.dir.y=0;
   S.stick.id=-1; S.stick.on=false; S.stick.f=0;
