@@ -839,6 +839,8 @@ function rodSplit(u){                // n人に rods 本を配る。3本目ま�
 const NAV_DEAD=0.045;                // 画面幅に対する停船半径。従来と同じ
 const NAV_FAST=0.86;                 // 縁までの距離のこの割合より外で倍速
 const NAV_BOOST=2.0;                 // 倍速の倍率
+const BOAT_ACC=0.018;                // 加速の効き。小さいほど速く乗る
+const BOAT_DEC=0.25;                 // 減速の効き。船なので加速より効きにくい
 function navThrottle(u){ return u<NAV_FAST ? 1 : NAV_BOOST; }
 function navBoost(){ return (S.dir.t||1)>1.001; }   // 縁に着けている間
 function navEff(){ return navBoost() ? 0 : 1; }     // そのあいだは竿を上げている
@@ -1201,7 +1203,7 @@ function updateBoat(dt){
     B.hd+=clamp(dh,-wmax*dt,wmax*dt);
   }
   const target=want>0?cruise:0;           // 推力は船首方向のみ。横滑りはしない
-  B.sp+=(target-B.sp)*(1-Math.pow(0.018,dt));
+  B.sp+=(target-B.sp)*(1-Math.pow(target>B.sp?BOAT_ACC:BOAT_DEC, dt));   // 止まるときだけ粘る
   B.vx=Math.cos(B.hd)*B.sp; B.vy=Math.sin(B.hd)*B.sp;
   B.x+=B.vx*dt; B.y+=B.vy*dt;
   if(Math.abs(B.vx)>4) B.face=B.vx>0?1:-1;
