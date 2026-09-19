@@ -665,6 +665,57 @@ function buildFisher(pi,row,pose){
   return {cv:c, ax:cx, ay:by, tip:{x:lx-cx, y:ly-by}};
 }
 
+const netters=[[],[]];   // [row][pose] -> [palette]  網漁用
+
+/* 網漁の漁師。頭と胴は一本釣りと同じ人。腕から先だけ差し替える。
+   pose0 = 綱を構えて待つ / pose1 = 締め。後ろへ体重をかけて両手で手繰る */
+function buildNetter(pi,row,pose){
+  const W=24,H=34, c=mkc(W,H), g=gx(c);
+  const p=FPAL[pi];
+  const by = row===0 ? 17 : 26;
+  const hy = by-15;
+  const cx = 7;
+  const ln = pose===1 ? -1 : 0;                      // 締めは1px後ろへ反る
+  const dir = row===0 ? 1 : -1;                      // 手前舷は手前の水へ、向こう舷は奥へ
+  // 頭
+  px(g,cx-3+ln,hy+1,7,6,p.skin);
+  px(g,cx-2+ln,hy,5,1,p.skin);
+  px(g,cx+2+ln,hy+3,1,1,'#3a2418'); px(g,cx+ln,hy+3,1,1,'#3a2418');
+  if(p.hat){ px(g,cx-5+ln,hy+1,11,1,p.hat); px(g,cx-3+ln,hy-1,7,2,p.hat); px(g,cx-3+ln,hy+1,7,1,'#00000033'); }
+  else if(p.band){ px(g,cx-3+ln,hy+1,7,2,p.band); px(g,cx+3+ln,hy+1,3,1,p.band); }
+  // 胴
+  px(g,cx-3+ln,by-8,7,8,p.shirt);
+  px(g,cx-3+ln,by-8,7,1,p.shirt2);
+  px(g,cx-3+ln,by-2,7,2,p.shirt2);
+  // 腕と手。網そのものは船に1枚あるので、ここは人の仕草だけ
+  let hx,hy2,tx,ty;
+  if(pose===0){                                      // 構え：舷に手をかけて綱を握る
+    px(g,cx+1,by-7,4,3,p.shirt);
+    px(g,cx+4,by-6,3,3,p.skin);
+    hx=cx+6; hy2=by-5;
+    tx=cx+10; ty=by+dir*7;
+  }else{                                             // 締め：肘を引いて両手で手繰る
+    px(g,cx+2+ln,by-12,4,3,p.shirt);
+    px(g,cx+5+ln,by-12,3,3,p.skin);
+    px(g,cx+1+ln,by-6,4,3,p.shirt);
+    px(g,cx+4+ln,by-6,3,3,p.skin);
+    hx=cx+7+ln; hy2=by-11;
+    tx=cx+11; ty=by+dir*3;
+  }
+  line(g,hx,hy2,tx,ty,'#c9b184');                    // 舷を越える綱
+  line(g,hx,hy2+1,tx,ty+dir,'#8a7450');
+  if(pose===1){                                      // 手繰った綱がたるむ
+    px(g,cx+7+ln,by-9,1,1,'#c9b184');
+    px(g,cx+8+ln,by-7,1,1,'#8a7450');
+  }
+  if(row===1){
+    g.globalCompositeOperation='source-atop';
+    px(g,0,0,W,H,'rgba(4,32,52,.34)');
+    g.globalCompositeOperation='source-over';
+  }
+  return {cv:c, ax:cx, ay:by, tip:{x:tx-cx, y:ty-by}};
+}
+
 /* ---------------- 大漁旗（入れ食い中に船室の上で振る） ---------------- */
 const flagCv=[];
 function buildFlag(){
@@ -951,8 +1002,11 @@ function saveGear(v){ try{localStorage.setItem('ippon.gear',v);}catch(e){} }
 function initAssets(){
   buildFishAtlas(); buildSea(); buildChest(); buildGull(); buildPop(); buildFlag();
   for(let lv=1;lv<=5;lv++) boats.push(buildBoat(lv));
-  for(let r=0;r<2;r++){ fishers[r]=[[],[]];
-    for(let p=0;p<2;p++) for(let i=0;i<3;i++) fishers[r][p][i]=buildFisher(i,r,p); }
+  for(let r=0;r<2;r++){ fishers[r]=[[],[]]; netters[r]=[[],[]];
+    for(let p=0;p<2;p++) for(let i=0;i<3;i++){
+      fishers[r][p][i]=buildFisher(i,r,p);
+      netters[r][p][i]=buildNetter(i,r,p);
+    } }
   UPG_IDS.forEach(id=>ICONS[id]=buildIcon(id));
 }
 
@@ -1112,7 +1166,7 @@ function placeCrew(){
   for(const fm of S.crew){
     fm.lx=b.seatX[fm.si]-b.W/2 + (fm.row===1?4:0);
     fm.ly=(fm.row===0?b.railY:b.railY+2)-b.waterY;
-    const sp=fishers[fm.row][fm.pose][fm.pal];
+    const sp=fsprite(fm);
     fm.wx=f<0?-fm.lx:fm.lx;
     fm.tipx=f<0?-(fm.lx+sp.tip.x):(fm.lx+sp.tip.x);
     fm.tipy=fm.ly+sp.tip.y;
@@ -1164,6 +1218,8 @@ function updateNet(dt){
   }
   S.inRange=cnt;
   N.flash=Math.max(0,N.flash-dt*3);
+  const want = N.phase==='pull' ? 1 : 0;            // 締めている間は全員が手繰る姿
+  if(S.crew.length && S.crew[0].pose!==want){ for(const fm of S.crew) fm.pose=want; placeCrew(); }
   if(navEff()<=0.001) return;                       // 倍速中は網を上げている
   N.t-=dt;
   if(N.t>0) return;
@@ -1500,8 +1556,9 @@ function drawRings(){
   }
   ctx.globalAlpha=1;
 }
+function fsprite(fm){ return (S.gear==='net'?netters:fishers)[fm.row][fm.pose][fm.pal]; }
 function drawFisher(fm){
-  const sp=fishers[fm.row][fm.pose][fm.pal];
+  const sp=fsprite(fm);
   ctx.drawImage(sp.cv, Math.round(fm.lx-sp.ax), Math.round(fm.ly-sp.ay));
 }
 function drawBoat(){
@@ -1628,10 +1685,31 @@ function drawNet(){
     const pulling=N.phase==='pull';
     const u=pulling ? 1-N.t/NET.pull : 1-Math.min(1,N.t/Math.max(.001,netCycle()));
     const k=pulling ? Math.max(0.10,1-u*u) : 1;    // 締めると縮む
+    const rr=R*k, ry2=Ry*k;
+    // 船から網へ渡す綱
+    const bl=boats[S.up.hull-1].len*0.34;
+    ctx.globalAlpha=(pulling?0.6:0.22)*(1-0.4*REDUCE);
+    ctx.strokeStyle='#c9b184'; ctx.lineWidth=1;
+    for(let i=0;i<8;i++){
+      const a=i/8*TAU+Math.PI/8, ca=Math.cos(a), sa=Math.sin(a);
+      ctx.beginPath();
+      ctx.moveTo(Math.round(cx+ca*bl)+.5, Math.round(cy+sa*7)+.5);
+      ctx.lineTo(Math.round(cx+ca*rr)+.5, Math.round(cy+sa*ry2)+.5);
+      ctx.stroke();
+    }
+    // 網の輪。締めているあいだは金色に張る
     ctx.globalAlpha=(pulling?0.95:0.22+0.45*u)*(1-0.4*REDUCE);
     ctx.strokeStyle=pulling?'#ffe9b0':'#6fd0c0';
     ctx.lineWidth=1;
-    ctx.beginPath(); ctx.ellipse(cx,cy,R*k,Ry*k,0,0,TAU); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(cx,cy,rr,ry2,0,0,TAU); ctx.stroke();
+    // 目。輪に沿って点を打つ
+    ctx.fillStyle=pulling?'#ffe9b0':'#6fd0c0';
+    ctx.globalAlpha=(pulling?0.55:0.20)*(1-0.4*REDUCE);
+    for(let i=0;i<40;i++){
+      const a=i/40*TAU, ca=Math.cos(a), sa=Math.sin(a);
+      const q=0.82+0.06*((i&1)?1:-1);
+      ctx.fillRect(Math.round(cx+ca*rr*q), Math.round(cy+sa*ry2*q), 1, 1);
+    }
     if(!pulling){                                   // 残り時間を輪の上の点で見せる
       const a=-Math.PI/2+u*TAU;
       ctx.globalAlpha=0.9; ctx.fillStyle='#6fd0c0';
