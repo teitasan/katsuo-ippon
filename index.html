@@ -864,7 +864,8 @@ const S={
   seatX:[], seats:0, acc:1, chestT:26, sprayAcc:0, start:{crew:2,hull:1,rate:0,rods:0,engine:0,sonar:1,lure:1}, totalFish:0, choices:[], caught:0,
   rt:0, shake:0, freeze:0, pop:0, pops:[], burst:null, inRange:0,
   fvT:0, fvRound:0, fvLock:0, fvPulse:0, fever:false, chain:0,
-  gear:'pole', net:{t:0, phase:'wait', held:[], flash:0}, haul:null, trawlAcc:0
+  gear:'pole', net:{t:0, phase:'wait', held:[], flash:0}, haul:null,
+  trawl:{x:0,y:0,vx:0,vy:0,hd:0}
 };
 const TONS=[9,19,49,119,199];
 /* 入れ食いは抽選ひとつだけ。1本釣るごとに回して、当たったら始まる。
@@ -950,8 +951,35 @@ const TR={
   take:0.55,       // 目。基準の取り分
   takeRod:0.05,    // 竿1本あたり取り分が何割増えるか
   takeCap:0.95,
-  slip:0.35        // 倍速のとき取り分がどれだけ落ちるか。上げるほど飛ばす利が減る
+  slip:0.35,       // 倍速のとき取り分がどれだけ落ちるか。上げるほど飛ばす利が減る
+  drag:0.35,       // 網が水から受ける抵抗。小さいほど早く止まる＝慣性が消える
+  rope:0.85        // 綱に引かれたぶんがどれだけ速度になるか。1で張りっぱなし、小さいと綱が食う
 };
+/* 網は船に刺さった棒ではなく、綱で曳かれている物体として持つ。
+   自分の慣性で真っ直ぐ行こうとし、綱の長さで引き戻される。
+   曲がると内側へ流れ、切り返すと振られる。船首から幾何で出すのをやめた */
+function trawlLen(){ return boats[S.up.hull-1].len*TR.lag+TR.depth*0.5; }
+function trawlReset(){
+  const B=S.boat, L=trawlLen();
+  S.trawl.x=B.x-Math.cos(B.hd)*L; S.trawl.y=B.y-Math.sin(B.hd)*L;
+  S.trawl.vx=0; S.trawl.vy=0; S.trawl.hd=B.hd;
+}
+function updateTrawlNode(dt){
+  const B=S.boat, T=S.trawl, L=trawlLen();
+  T.x+=T.vx*dt; T.y+=T.vy*dt;
+  const k=Math.pow(TR.drag, dt);                 // 水の抵抗
+  T.vx*=k; T.vy*=k;
+  let dx=T.x-B.x, dy=T.y-B.y, d=Math.hypot(dx,dy);
+  if(d<1e-4){ dx=-Math.cos(B.hd); dy=-Math.sin(B.hd); d=1; }
+  if(d>L){                                       // 綱いっぱい。引き戻して、その移動を速度にする
+    const nx=dx/d, ny=dy/d;
+    const cx=B.x+nx*L, cy=B.y+ny*L;
+    const inv=1/Math.max(dt,1e-4);
+    T.vx+=(cx-T.x)*inv*TR.rope; T.vy+=(cy-T.y)*inv*TR.rope;
+    T.x=cx; T.y=cy;
+  }
+  T.hd=Math.atan2(B.y-T.y, B.x-T.x);             // 口は進む側＝船のほうを向く
+}
 function trawlW(){
   const n=Math.max(1,Math.min(S.up.crew,stat.seats()));
   const w=TR.w0*(1+TR.wCrew*(n-2))*(1+TR.wHull*(S.up.hull-1));
@@ -962,11 +990,7 @@ function trawlTake(){
   const base=Math.min(TR.takeCap, TR.take*(1+TR.takeRod*(S.up.rods||0)));
   return base*(1-TR.slip*Math.min(1,over));
 }
-function trawlPos(){                       // 網の口の中心
-  const B=S.boat, b=boats[S.up.hull-1];
-  const d=b.len*TR.lag+TR.depth*0.5;
-  return {x:B.x-Math.cos(B.hd)*d, y:B.y-Math.sin(B.hd)*d};
-}
+function trawlPos(){ return S.trawl; }     // 網の口の中心
 function netCycle(){                       // 漁師が増えるほど手繰りが速い
   const n=Math.max(1,Math.min(S.up.crew,stat.seats()));
   return Math.max(NET.minSec, NET.base/(1+NET.crew*(n-2))/(S.fever?FV_RATE:1));
@@ -1261,8 +1285,9 @@ function updateNet(dt){
   if(N.phase==='pull') netHaul(); else netCast();
 }
 function updateTrawl(dt){
-  const B=S.boat, n=trawlPos();
-  const ca=Math.cos(B.hd), sa=Math.sin(B.hd);
+  updateTrawlNode(dt);
+  const n=S.trawl;
+  const ca=Math.cos(n.hd), sa=Math.sin(n.hd);
   const hw=trawlW()*0.5, hd2=TR.depth*0.5;
   const take=trawlTake();
   const p=1-Math.exp(-TR.rate*take*dt);     // 口の中に居続けると獲られる
@@ -1749,11 +1774,11 @@ function drawStick(){
 }
 function drawTrawl(){
   if(S.gear!=='trawl') return;
-  const B=S.boat, n=trawlPos(), ox=VW/2-B.x, oy=VH/2-B.y;
-  const ca=Math.cos(B.hd), sa=Math.sin(B.hd);
+  const B=S.boat, n=S.trawl, ox=VW/2-B.x, oy=VH/2-B.y;
+  const ca=Math.cos(n.hd), sa=Math.sin(n.hd);
   const hw=trawlW()*0.5, hd2=TR.depth*0.5;
   const P=(lx,ly)=>[Math.round(n.x+lx*ca-ly*sa+ox), Math.round(n.y+lx*sa+ly*ca+oy+bobPx)];
-  const a=P(hd2,-hw), b=P(hd2,hw), c=P(-hd2,hw*0.55), d=P(-hd2,-hw*0.55);
+  const a=P(hd2,-hw), b=P(hd2,hw), c=P(-hd2,hw*0.55), d=P(-hd2,-hw*0.55);   // 口(a,b)が船側
   const boosting=navBoost();
   ctx.lineWidth=1;
   ctx.globalAlpha=0.30*(1-0.4*REDUCE);          // 曳き綱
@@ -2101,6 +2126,7 @@ function reset(){
   S.schools.length=0; S.chests.length=0; S.crew.length=0;
   S.parts.length=0; S.wake.length=0; S.rings.length=0; S.spray.length=0; S.flash.length=0; S.pops.length=0; S.boil.length=0; S.boilAcc=0;
   S.net.t=netCycle(); S.net.phase='wait'; S.net.held.length=0; S.net.flash=0;
+  trawlReset();
   S.fvT=0; S.fvRound=0; S.fvLock=0; S.fvPulse=0; S.fever=false; S.chain=0; S.inRange=0; S.pop=0; S.shake=0; S.freeze=0; S.burst=null;
   S.up={crew:2,hull:1,rate:0,rods:0,engine:0,sonar:1,lure:1};
   S.start={crew:2,hull:1,rate:0,rods:0,engine:0,sonar:1,lure:1};
