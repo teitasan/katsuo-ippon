@@ -865,7 +865,7 @@ const S={
   rt:0, shake:0, freeze:0, pop:0, pops:[], burst:null, inRange:0,
   fvT:0, fvRound:0, fvLock:0, fvPulse:0, fever:false, chain:0,
   gear:'pole', net:{t:0, phase:'wait', held:[], flash:0}, haul:null,
-  trawl:{x:0,y:0,vx:0,vy:0,hd:0,bag:[]}
+  trawl:{x:0,y:0,vx:0,vy:0,hd:0}
 };
 const TONS=[9,19,49,119,199];
 /* 入れ食いは抽選ひとつだけ。1本釣るごとに回して、当たったら始まる。
@@ -945,11 +945,9 @@ const TR={
   wHull:0.28,      // 船体Lv1つあたり口が何割広がるか
   wCap:300,        // 口の幅の上限
   depth:70,        // 網の長さ（口から袋の底まで）
-  bag:0.22,        // 袋の底の幅。口に対する割合
+  bag:0.70,        // 袋の底の幅。口に対する割合。絞るほど壁から漏れて底に届かない
   lip:0.30,        // 口の丸み（見た目だけ）
-  flow:0.6,        // 網の中を魚が流される速さ。船速に対する倍率
-  stall:18,        // この速度を下回ると魚が口のほうへ戻りはじめる（px/秒）
-  hold:900,        // 網の中に同時に入れる上限
+  cod:12,          // 袋の底。ここまで流れ込んだら漁獲
   lag:0.75,        // 船尾からどれだけ後ろに曳くか（船長に対する割合）
   take:0.55,       // 目。基準の取り分
   takeRod:0.05,    // 竿1本あたり取り分が何割増えるか
@@ -969,7 +967,7 @@ function trawlHalfW(u){                        // u: 0=口 1=袋の底
 function trawlReset(){
   const B=S.boat, L=trawlLen();
   S.trawl.x=B.x-Math.cos(B.hd)*L; S.trawl.y=B.y-Math.sin(B.hd)*L;
-  S.trawl.vx=0; S.trawl.vy=0; S.trawl.hd=B.hd; S.trawl.bag.length=0;
+  S.trawl.vx=0; S.trawl.vy=0; S.trawl.hd=B.hd;
 }
 function updateTrawlNode(dt){
   const B=S.boat, T=S.trawl, L=trawlLen();
@@ -1293,55 +1291,44 @@ function updateNet(dt){
 }
 function updateTrawl(dt){
   updateTrawlNode(dt);
-  const T=S.trawl, bag=T.bag;
+  const T=S.trawl;
   const ca=Math.cos(T.hd), sa=Math.sin(T.hd);
   const hd2=TR.depth*0.5, hw=trawlW()*0.5;
   const take=trawlTake();
-  const spd=Math.hypot(T.vx,T.vy);
-  const dp=(spd-TR.stall)*TR.flow*dt/TR.depth;   // 止まると負になって口へ戻る
-
-  // すでに網の中にいる魚を流す
-  for(let i=bag.length-1;i>=0;i--){
-    const h=bag[i];
-    h.p+=dp;
-    if(h.p>=1){ bag.splice(i,1); trawlLand(h); }
-    else if(h.p<0) bag.splice(i,1);                // 口から逃げた
-  }
-
-  // 口の中に入った魚を網へ移す
-  let cnt=bag.length;
+  const back=-hd2+TR.cod;
   const reach=Math.max(hw,hd2)+24;
+  let cnt=0;
+  /* 魚は網に取り込まない。泳いだまま網の中を相対的に後ろへ流れていき、
+     袋の底まで届いたぶんだけ漁獲になる。網が止まれば届かないし、
+     振り回せば横から出ていく。目から漏れた個体はそのまま泳ぎ続ける */
   for(const sc of S.schools){
     if(Math.abs(sc.cx-T.x)>reach+sc.rx*sc.k || Math.abs(sc.cy-T.y)>reach+sc.rx*sc.k) continue;
     for(const f of sc.fish){
       if(!f.alive) continue;
       const dx=f.wx-T.x, dy=f.wy-T.y;
-      const lx=dx*ca+dy*sa, ly=-dx*sa+dy*ca;
-      if(lx>hd2 || lx<-hd2){ f.slip=0; continue; }
+      const lx=dx*ca+dy*sa;
+      if(lx>hd2 || lx<-hd2){ if(f.slip) f.slip=0; continue; }
+      const ly=-dx*sa+dy*ca;
       const u=(hd2-lx)/TR.depth;
-      if(Math.abs(ly)>trawlHalfW(u)){ f.slip=0; continue; }
+      if(Math.abs(ly)>trawlHalfW(u)){ if(f.slip) f.slip=0; continue; }
       cnt++;
-      if(f.slip) continue;                       // 目から逃げた個体。網を出るまで無視
+      if(lx>back) continue;                      // まだ袋の底に届いていない
+      if(f.slip) continue;                       // 目から漏れた個体
       if(Math.random()>take){ f.slip=1; continue; }
-      if(bag.length>=TR.hold) continue;
       f.alive=false; sc.alive--; S.totalFish--;
-      bag.push({p:u, ly:ly/Math.max(1,trawlHalfW(u)), a:f.a, dd:f.dd});
+      S.score++; S.prog++; S.pop=1;
+      if(S.pops.length<64 && Math.random()<.3) S.pops.push({x:f.wx, y:f.wy, t:0, fv:S.fever});
+      if(S.fever){
+        S.chain++;
+        if(Math.random()<fvEntry()) feverHit();
+      }
+      else if(S.fvLock<=0 && cnt>=FV_MINFISH && Math.random()<fvEntry()) feverOn();
+      if(S.prog>=S.need) levelUp();
     }
   }
   S.inRange=cnt;
-  const want=((S.rt*4)|0)&1;                     // 手繰り続けている
+  const want=((S.rt*4)|0)&1;
   if(S.crew.length && S.crew[0].pose!==want){ for(const fm of S.crew) fm.pose=want; placeCrew(); }
-}
-function trawlLand(h){                           // 袋の底まで届いた
-  const T=S.trawl;
-  S.score++; S.prog++; S.pop=1;
-  if(S.pops.length<64 && Math.random()<.35) S.pops.push({x:T.x, y:T.y, t:0, fv:S.fever});
-  if(S.fever){
-    S.chain++;
-    if(Math.random()<fvEntry()) feverHit();
-  }
-  else if(S.fvLock<=0 && S.inRange>=FV_MINFISH && Math.random()<fvEntry()) feverOn();
-  if(S.prog>=S.need) levelUp();
 }
 function updateFishing(dt){
   if(S.gear==='seine') return updateNet(dt);
@@ -1850,15 +1837,6 @@ function drawTrawl(){
     }
   }
 
-  // 袋の中を流されている魚
-  ctx.globalAlpha=1;
-  for(const h of T.bag){
-    const w=trawlHalfW(h.p);
-    const q=P(hd2-h.p*TR.depth, h.ly*w);
-    const ai=((Math.round(h.a/TAU*ANG)%ANG)+ANG)%ANG;
-    ctx.drawImage(fishAtlas, ai*CELL, 3*CELL, CELL, CELL,
-      (Math.round(q[0])-CELL/2)|0, (Math.round(q[1])-CELL/2)|0, CELL, CELL);
-  }
   ctx.globalAlpha=1;
 }
 function drawNet(){
