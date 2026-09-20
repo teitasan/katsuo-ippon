@@ -865,7 +865,7 @@ const S={
   rt:0, shake:0, freeze:0, pop:0, pops:[], burst:null, inRange:0,
   fvT:0, fvRound:0, fvLock:0, fvPulse:0, fever:false, chain:0,
   gear:'pole', net:{t:0, phase:'wait', held:[], flash:0}, haul:null,
-  trawl:{x:0,y:0,vx:0,vy:0,hd:0}
+  trawl:{x:0,y:0,vx:0,vy:0,hd:0,bag:[]}
 };
 const TONS=[9,19,49,119,199];
 /* 入れ食いは抽選ひとつだけ。1本釣るごとに回して、当たったら始まる。
@@ -944,10 +944,13 @@ const TR={
   wCrew:0.09,      // 稼働1人あたり口が何割広がるか
   wHull:0.28,      // 船体Lv1つあたり口が何割広がるか
   wCap:300,        // 口の幅の上限
-  depth:30,        // 口の奥行き（進行方向）
+  depth:70,        // 網の長さ（口から袋の底まで）
+  bag:0.22,        // 袋の底の幅。口に対する割合
+  lip:0.30,        // 口の丸み（見た目だけ）
+  flow:0.6,        // 網の中を魚が流される速さ。船速に対する倍率
+  stall:18,        // この速度を下回ると魚が口のほうへ戻りはじめる（px/秒）
+  hold:900,        // 網の中に同時に入れる上限
   lag:0.75,        // 船尾からどれだけ後ろに曳くか（船長に対する割合）
-  rate:30,         // 口の中にいる魚が1秒あたり獲られる率。低いと速いとき素通りが増えて
-                   // slip と二重の罰になるので、口を通れば獲れる程度に高くしてある
   take:0.55,       // 目。基準の取り分
   takeRod:0.05,    // 竿1本あたり取り分が何割増えるか
   takeCap:0.95,
@@ -959,10 +962,14 @@ const TR={
    自分の慣性で真っ直ぐ行こうとし、綱の長さで引き戻される。
    曲がると内側へ流れ、切り返すと振られる。船首から幾何で出すのをやめた */
 function trawlLen(){ return boats[S.up.hull-1].len*TR.lag+TR.depth*0.5; }
+function trawlHalfW(u){                        // u: 0=口 1=袋の底
+  const hw=trawlW()*0.5;
+  return hw*(TR.bag+(1-TR.bag)*Math.cos(Math.min(1,Math.max(0,u))*Math.PI/2));
+}
 function trawlReset(){
   const B=S.boat, L=trawlLen();
   S.trawl.x=B.x-Math.cos(B.hd)*L; S.trawl.y=B.y-Math.sin(B.hd)*L;
-  S.trawl.vx=0; S.trawl.vy=0; S.trawl.hd=B.hd;
+  S.trawl.vx=0; S.trawl.vy=0; S.trawl.hd=B.hd; S.trawl.bag.length=0;
 }
 function updateTrawlNode(dt){
   const B=S.boat, T=S.trawl, L=trawlLen();
@@ -1286,32 +1293,49 @@ function updateNet(dt){
 }
 function updateTrawl(dt){
   updateTrawlNode(dt);
-  const n=S.trawl;
-  const ca=Math.cos(n.hd), sa=Math.sin(n.hd);
-  const hw=trawlW()*0.5, hd2=TR.depth*0.5;
+  const T=S.trawl, bag=T.bag;
+  const ca=Math.cos(T.hd), sa=Math.sin(T.hd);
+  const hd2=TR.depth*0.5, hw=trawlW()*0.5;
   const take=trawlTake();
-  const p=1-Math.exp(-TR.rate*take*dt);     // 口の中に居続けると獲られる
-  const reach=Math.max(hw,hd2)+20;
-  let cnt=0;
-  for(const s of S.schools){
-    if(Math.abs(s.cx-n.x)>reach+s.rx*s.k || Math.abs(s.cy-n.y)>reach+s.rx*s.k) continue;
-    for(const f of s.fish){
+  const spd=Math.hypot(T.vx,T.vy);
+  const dp=(spd-TR.stall)*TR.flow*dt/TR.depth;   // 止まると負になって口へ戻る
+
+  // すでに網の中にいる魚を流す
+  for(let i=bag.length-1;i>=0;i--){
+    const h=bag[i];
+    h.p+=dp;
+    if(h.p>=1){ bag.splice(i,1); trawlLand(h); }
+    else if(h.p<0) bag.splice(i,1);                // 口から逃げた
+  }
+
+  // 口の中に入った魚を網へ移す
+  let cnt=bag.length;
+  const reach=Math.max(hw,hd2)+24;
+  for(const sc of S.schools){
+    if(Math.abs(sc.cx-T.x)>reach+sc.rx*sc.k || Math.abs(sc.cy-T.y)>reach+sc.rx*sc.k) continue;
+    for(const f of sc.fish){
       if(!f.alive) continue;
-      const dx=f.wx-n.x, dy=f.wy-n.y;
+      const dx=f.wx-T.x, dy=f.wy-T.y;
       const lx=dx*ca+dy*sa, ly=-dx*sa+dy*ca;
-      if(Math.abs(lx)>hd2 || Math.abs(ly)>hw) continue;
+      if(lx>hd2 || lx<-hd2){ f.slip=0; continue; }
+      const u=(hd2-lx)/TR.depth;
+      if(Math.abs(ly)>trawlHalfW(u)){ f.slip=0; continue; }
       cnt++;
-      if(Math.random()<p) trawlTake1(f,s);
+      if(f.slip) continue;                       // 目から逃げた個体。網を出るまで無視
+      if(Math.random()>take){ f.slip=1; continue; }
+      if(bag.length>=TR.hold) continue;
+      f.alive=false; sc.alive--; S.totalFish--;
+      bag.push({p:u, ly:ly/Math.max(1,trawlHalfW(u)), a:f.a, dd:f.dd});
     }
   }
   S.inRange=cnt;
-  const want=((S.rt*4)|0)&1;                // 手繰り続けている
+  const want=((S.rt*4)|0)&1;                     // 手繰り続けている
   if(S.crew.length && S.crew[0].pose!==want){ for(const fm of S.crew) fm.pose=want; placeCrew(); }
 }
-function trawlTake1(f,s){
-  f.alive=false; s.alive--; S.totalFish--; S.score++; S.prog++; S.pop=1;
-  if(S.pops.length<64 && Math.random()<.3) S.pops.push({x:f.wx, y:f.wy, t:0, fv:S.fever});
-  S.rings.push({x:f.wx, y:f.wy, t:0});
+function trawlLand(h){                           // 袋の底まで届いた
+  const T=S.trawl;
+  S.score++; S.prog++; S.pop=1;
+  if(S.pops.length<64 && Math.random()<.35) S.pops.push({x:T.x, y:T.y, t:0, fv:S.fever});
   if(S.fever){
     S.chain++;
     if(Math.random()<fvEntry()) feverHit();
@@ -1774,35 +1798,66 @@ function drawStick(){
 }
 function drawTrawl(){
   if(S.gear!=='trawl') return;
-  const B=S.boat, n=S.trawl, ox=VW/2-B.x, oy=VH/2-B.y;
-  const ca=Math.cos(n.hd), sa=Math.sin(n.hd);
-  const hw=trawlW()*0.5, hd2=TR.depth*0.5;
-  const P=(lx,ly)=>[Math.round(n.x+lx*ca-ly*sa+ox), Math.round(n.y+lx*sa+ly*ca+oy+bobPx)];
-  const a=P(hd2,-hw), b=P(hd2,hw), c=P(-hd2,hw*0.55), d=P(-hd2,-hw*0.55);   // 口(a,b)が船側
+  const B=S.boat, T=S.trawl, ox=VW/2-B.x, oy=VH/2-B.y;
+  const ca=Math.cos(T.hd), sa=Math.sin(T.hd);
+  const hd2=TR.depth*0.5;
+  const P=(lx,ly)=>[T.x+lx*ca-ly*sa+ox, T.y+lx*sa+ly*ca+oy+bobPx];
   const boosting=navBoost();
+  const N=14;
   ctx.lineWidth=1;
-  ctx.globalAlpha=0.30*(1-0.4*REDUCE);          // 曳き綱
-  ctx.strokeStyle='#c9b184';
-  const st=[Math.round(B.x+ox), Math.round(B.y+oy+bobPx)];
+
+  // 曳き綱：船から口の両端へ
+  const m0=P(hd2,-trawlHalfW(0)), m1=P(hd2,trawlHalfW(0));
+  ctx.globalAlpha=0.30*(1-0.4*REDUCE); ctx.strokeStyle='#c9b184';
   ctx.beginPath();
-  ctx.moveTo(st[0]+.5,st[1]+.5); ctx.lineTo(a[0]+.5,a[1]+.5);
-  ctx.moveTo(st[0]+.5,st[1]+.5); ctx.lineTo(b[0]+.5,b[1]+.5);
+  ctx.moveTo(Math.round(B.x+ox)+.5, Math.round(B.y+oy+bobPx)+.5);
+  ctx.lineTo(Math.round(m0[0])+.5, Math.round(m0[1])+.5);
+  ctx.moveTo(Math.round(B.x+ox)+.5, Math.round(B.y+oy+bobPx)+.5);
+  ctx.lineTo(Math.round(m1[0])+.5, Math.round(m1[1])+.5);
   ctx.stroke();
-  ctx.globalAlpha=(boosting?0.75:0.5)*(1-0.4*REDUCE);   // 口と袋
+
+  // 網の輪郭。判定と同じ w(u) を辿るので見た目と当たりが一致する
+  ctx.globalAlpha=(boosting?0.7:0.5)*(1-0.4*REDUCE);
   ctx.strokeStyle=boosting?'#ffe9b0':'#6fd0c0';
   ctx.beginPath();
-  ctx.moveTo(a[0]+.5,a[1]+.5); ctx.lineTo(b[0]+.5,b[1]+.5);
-  ctx.lineTo(c[0]+.5,c[1]+.5); ctx.lineTo(d[0]+.5,d[1]+.5); ctx.closePath();
+  for(let i=0;i<=N;i++){
+    const u=i/N, q=P(hd2-u*TR.depth, trawlHalfW(u));
+    if(i===0) ctx.moveTo(q[0],q[1]); else ctx.lineTo(q[0],q[1]);
+  }
+  for(let i=N;i>=0;i--){
+    const u=i/N, q=P(hd2-u*TR.depth, -trawlHalfW(u));
+    ctx.lineTo(q[0],q[1]);
+  }
+  ctx.closePath(); ctx.stroke();
+  // 口の丸み（浮子綱）
+  const lip=trawlHalfW(0)*TR.lip;
+  ctx.beginPath();
+  for(let i=0;i<=N;i++){
+    const v=-1+2*i/N, q=P(hd2+lip*(1-v*v), v*trawlHalfW(0));
+    if(i===0) ctx.moveTo(q[0],q[1]); else ctx.lineTo(q[0],q[1]);
+  }
   ctx.stroke();
-  ctx.globalAlpha=0.26*(1-0.4*REDUCE);          // 目
+
+  // 目
+  ctx.globalAlpha=0.22*(1-0.4*REDUCE);
   ctx.fillStyle=boosting?'#ffe9b0':'#6fd0c0';
-  for(let i=1;i<10;i++){
-    const u=i/10;
-    for(let j=1;j<7;j++){
-      const v=j/7;
-      const q=P(hd2-TR.depth*u, (-hw+2*hw*v)*(1-0.45*u));
-      if(((i+j)&1)===0) ctx.fillRect(q[0],q[1],1,1);
+  for(let i=1;i<9;i++){
+    const u=i/9, w=trawlHalfW(u);
+    for(let j=0;j<7;j++){
+      if(((i+j)&1)) continue;
+      const q=P(hd2-u*TR.depth, (-1+2*j/6)*w);
+      ctx.fillRect(Math.round(q[0]),Math.round(q[1]),1,1);
     }
+  }
+
+  // 袋の中を流されている魚
+  ctx.globalAlpha=1;
+  for(const h of T.bag){
+    const w=trawlHalfW(h.p);
+    const q=P(hd2-h.p*TR.depth, h.ly*w);
+    const ai=((Math.round(h.a/TAU*ANG)%ANG)+ANG)%ANG;
+    ctx.drawImage(fishAtlas, ai*CELL, 3*CELL, CELL, CELL,
+      (Math.round(q[0])-CELL/2)|0, (Math.round(q[1])-CELL/2)|0, CELL, CELL);
   }
   ctx.globalAlpha=1;
 }
