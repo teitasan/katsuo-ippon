@@ -289,9 +289,6 @@
     .stats{max-width:52%}
   }
 </style>
-</head>
-<body>
-
 <div id="stage">
   <div id="frame">
     <canvas id="game" width="480" height="270"></canvas>
@@ -556,6 +553,10 @@ function buildFishAtlas(){
       g.restore();
     }
   }
+  /* 魚は毎フレーム数千枚出る。転送元が canvas のままだと1枚ごとに取り込み直しが要る。
+     ImageBitmap にしておくと絵は1pxも変わらないまま、その取り込みが消える。 */
+  if(typeof createImageBitmap==='function')
+    createImageBitmap(fishAtlas).then(b=>{ fishAtlas=b; }).catch(()=>{});
 }
 
 /* ---------------- 漁船（Lv1〜Lv5・独立生成） ---------------- */
@@ -1590,9 +1591,18 @@ function drawSea(){
   ctx.fillStyle=topGrad; ctx.fillRect(-5,-5,VW+10,VH+10);   // 揺れたぶんの余白まで塗る
 }
 let fishDrawn=0;
+/* 魚は16x16あるので、密な群れでは画面の何倍もの面積を重ね描きしてしまう。
+   画面を粗い升目に切って、1升に DENS_CAP 匹より多くは描かない。
+   重なって見えない個体を落とすだけなので、密度の見た目はほとんど変わらない。
+   DENS_CELL を大きく／DENS_CAP を小さくするほど軽くなって、群れが薄く見えはじめる */
+const DENS_CELL=6, DENS_CAP=2;
+const DENS_W=Math.ceil((VW+18)/DENS_CELL)+1, DENS_H=Math.ceil((VH+18)/DENS_CELL)+1;
+const densGrid=new Uint8Array(DENS_W*DENS_H);
 function drawSchools(){
   const B=S.boat, ox=VW/2-B.x, oy=VH/2-B.y;
   fishDrawn=0;
+  densGrid.fill(0);
+  const k=1/TAU*ANG;
   for(const s of S.schools){
     const cx=s.cx+ox, cy=s.cy+oy, krx=s.rx*s.k, kry=s.ry*s.k;
     const mg=krx+40;
@@ -1603,7 +1613,10 @@ function drawSchools(){
       const f=fs[i]; if(!f.alive) continue;
       const x=f.wx+ox, y=f.wy+oy;
       if(x<-9||x>VW+9||y<-9||y>VH+9) continue;
-      const ai=((Math.round(f.a/TAU*ANG)%ANG)+ANG)%ANG;
+      const gi=((y+9)/DENS_CELL|0)*DENS_W+((x+9)/DENS_CELL|0);
+      if(densGrid[gi]>=DENS_CAP) continue;          // ここはもう埋まっている
+      densGrid[gi]++;
+      const ai=((Math.round(f.a*k)%ANG)+ANG)%ANG;
       ctx.drawImage(fishAtlas, ai*CELL, f.dd*CELL, CELL, CELL, (x-CELL/2)|0, (y-CELL/2)|0, CELL, CELL);
       fishDrawn++;
     }
@@ -2451,5 +2464,3 @@ applyLang();
 reset(); S.mode='play'; S.started=false;
 requestAnimationFrame(tick);
 </script>
-</body>
-</html>
