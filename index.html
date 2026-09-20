@@ -419,7 +419,7 @@ ja:{
  'res.grow':'漁獲力 {a} → {b} 本/秒','res.growX':'×{c}','res.newbest':'自己ベスト更新',
  'res.from':'{v} から','res.retry':'もう一度','res.best':'自己ベスト {n}本',
  'menu.head':'キュウケイ','menu.sound':'音','menu.on':'ON','menu.off':'OFF','menu.retry':'やり直す','menu.close':'閉じる',
- 'menu.gear':'漁法','gear.pole':'一本釣り','gear.net':'網'
+ 'menu.gear':'漁法','gear.pole':'一本釣り','gear.seine':'巻き網','gear.trawl':'曳き網'
 },
 en:{
  'title.h1a':'FISH','title.h1b':'ON!','title.sub':'~Pole & Line',
@@ -449,7 +449,7 @@ en:{
  'res.grow':'RATE {a} → {b} fish/s','res.growX':'×{c}','res.newbest':'NEW BEST',
  'res.from':'from {v}','res.retry':'ONE MORE','res.best':'BEST {n}',
  'menu.head':'PAUSED','menu.sound':'Sound','menu.on':'ON','menu.off':'OFF','menu.retry':'RESTART','menu.close':'CLOSE',
- 'menu.gear':'Gear','gear.pole':'Pole','gear.net':'Net'
+ 'menu.gear':'Gear','gear.pole':'Pole','gear.seine':'Seine','gear.trawl':'Trawl'
 }};
 let LANG='ja';                 // Playables では SDK の getLanguage で決める
 function t(k,p){
@@ -864,7 +864,7 @@ const S={
   seatX:[], seats:0, acc:1, chestT:26, sprayAcc:0, start:{crew:2,hull:1,rate:0,rods:0,engine:0,sonar:1,lure:1}, totalFish:0, choices:[], caught:0,
   rt:0, shake:0, freeze:0, pop:0, pops:[], burst:null, inRange:0,
   fvT:0, fvRound:0, fvLock:0, fvPulse:0, fever:false, chain:0,
-  gear:'pole', net:{t:0, phase:'wait', held:[], flash:0}, haul:null
+  gear:'pole', net:{t:0, phase:'wait', held:[], flash:0}, haul:null, trawlAcc:0
 };
 const TONS=[9,19,49,119,199];
 /* 入れ食いは抽選ひとつだけ。1本釣るごとに回して、当たったら始まる。
@@ -931,7 +931,42 @@ const NET={
   takeRod:0.05,    // 竿1本あたり取り分が何割増えるか
   takeCap:0.95     // 取り分の上限
 };
+function netGear(){ return S.gear==='seine'||S.gear==='trawl'; }
 function netR(){ return Math.min(NET.rCap, stat.rx()*NET.rMul); }
+
+/* ================= 曳き網 ================= */
+/* 網を船の後ろに曳き、通った水域の魚を連続で獲る。数字は一本釣りと同じで止まらない。
+   巻き網と逆で「速く動くほど掃く水が増える」。ただし速いほど目から逃げるので、
+   群れの上では緩め、群れの間は飛ばす、が素直な形になる */
+const TR={
+  w0:34,           // 稼働2人のときの網の口の幅（px）
+  wCrew:0.09,      // 稼働1人あたり口が何割広がるか
+  wHull:0.28,      // 船体Lv1つあたり口が何割広がるか
+  wCap:300,        // 口の幅の上限
+  depth:30,        // 口の奥行き（進行方向）
+  lag:0.75,        // 船尾からどれだけ後ろに曳くか（船長に対する割合）
+  rate:30,         // 口の中にいる魚が1秒あたり獲られる率。低いと速いとき素通りが増えて
+                   // slip と二重の罰になるので、口を通れば獲れる程度に高くしてある
+  take:0.55,       // 目。基準の取り分
+  takeRod:0.05,    // 竿1本あたり取り分が何割増えるか
+  takeCap:0.95,
+  slip:0.35        // 倍速のとき取り分がどれだけ落ちるか。上げるほど飛ばす利が減る
+};
+function trawlW(){
+  const n=Math.max(1,Math.min(S.up.crew,stat.seats()));
+  const w=TR.w0*(1+TR.wCrew*(n-2))*(1+TR.wHull*(S.up.hull-1));
+  return Math.min(TR.wCap, w)*(S.fever?FV_RATE:1);
+}
+function trawlTake(){
+  const sp=stat.speed(), over=Math.max(0,(S.boat.sp/Math.max(1,sp)-1)/(NAV_BOOST-1));
+  const base=Math.min(TR.takeCap, TR.take*(1+TR.takeRod*(S.up.rods||0)));
+  return base*(1-TR.slip*Math.min(1,over));
+}
+function trawlPos(){                       // 網の口の中心
+  const B=S.boat, b=boats[S.up.hull-1];
+  const d=b.len*TR.lag+TR.depth*0.5;
+  return {x:B.x-Math.cos(B.hd)*d, y:B.y-Math.sin(B.hd)*d};
+}
 function netCycle(){                       // 漁師が増えるほど手繰りが速い
   const n=Math.max(1,Math.min(S.up.crew,stat.seats()));
   return Math.max(NET.minSec, NET.base/(1+NET.crew*(n-2))/(S.fever?FV_RATE:1));
@@ -969,7 +1004,7 @@ function valOf(id,u){
     }
     case 'hull':   r={n:String(stat.seats(u)), u:t('unit.crew')}; break;
     case 'rate': {
-      if(S.gear==='net'){                           // 網では釣具＝網の目。取り分で見せる
+      if(netGear()){                                // 網では釣具＝網の目。取り分で見せる
         const tk=Math.min(NET.takeCap, NET.take*(1+NET.takeRod*(u.rods||0)));
         r={n:Math.round(tk*100)+'%', u:''}; break;
       }
@@ -992,7 +1027,7 @@ function nextUp(id){
 }
 function loadBest(){ try{return parseInt(localStorage.getItem('ippon.best')||'0',10)||0;}catch(e){return 0;} }
 function saveBest(v){ try{localStorage.setItem('ippon.best',String(v));}catch(e){} }
-function loadGear(){ try{return localStorage.getItem('ippon.gear')==='net'?'net':'pole';}catch(e){return 'pole';} }
+function loadGear(){ try{const v=localStorage.getItem('ippon.gear'); return (v==='seine'||v==='trawl')?v:'pole';}catch(e){return 'pole';} }
 function saveGear(v){ try{localStorage.setItem('ippon.gear',v);}catch(e){} }
 </script>
 
@@ -1225,8 +1260,43 @@ function updateNet(dt){
   if(N.t>0) return;
   if(N.phase==='pull') netHaul(); else netCast();
 }
+function updateTrawl(dt){
+  const B=S.boat, n=trawlPos();
+  const ca=Math.cos(B.hd), sa=Math.sin(B.hd);
+  const hw=trawlW()*0.5, hd2=TR.depth*0.5;
+  const take=trawlTake();
+  const p=1-Math.exp(-TR.rate*take*dt);     // 口の中に居続けると獲られる
+  const reach=Math.max(hw,hd2)+20;
+  let cnt=0;
+  for(const s of S.schools){
+    if(Math.abs(s.cx-n.x)>reach+s.rx*s.k || Math.abs(s.cy-n.y)>reach+s.rx*s.k) continue;
+    for(const f of s.fish){
+      if(!f.alive) continue;
+      const dx=f.wx-n.x, dy=f.wy-n.y;
+      const lx=dx*ca+dy*sa, ly=-dx*sa+dy*ca;
+      if(Math.abs(lx)>hd2 || Math.abs(ly)>hw) continue;
+      cnt++;
+      if(Math.random()<p) trawlTake1(f,s);
+    }
+  }
+  S.inRange=cnt;
+  const want=((S.rt*4)|0)&1;                // 手繰り続けている
+  if(S.crew.length && S.crew[0].pose!==want){ for(const fm of S.crew) fm.pose=want; placeCrew(); }
+}
+function trawlTake1(f,s){
+  f.alive=false; s.alive--; S.totalFish--; S.score++; S.prog++; S.pop=1;
+  if(S.pops.length<64 && Math.random()<.3) S.pops.push({x:f.wx, y:f.wy, t:0, fv:S.fever});
+  S.rings.push({x:f.wx, y:f.wy, t:0});
+  if(S.fever){
+    S.chain++;
+    if(Math.random()<fvEntry()) feverHit();
+  }
+  else if(S.fvLock<=0 && S.inRange>=FV_MINFISH && Math.random()<fvEntry()) feverOn();
+  if(S.prog>=S.need) levelUp();
+}
 function updateFishing(dt){
-  if(S.gear==='net') return updateNet(dt);
+  if(S.gear==='seine') return updateNet(dt);
+  if(S.gear==='trawl') return updateTrawl(dt);
   const B=S.boat, rx=stat.rx(), ry=stat.ry(), eff=navEff();
   const base=BARE*(S.acc||1)*(S.fever?FV_RATE:1)*eff;
   const up=[], dn=[];
@@ -1556,7 +1626,7 @@ function drawRings(){
   }
   ctx.globalAlpha=1;
 }
-function fsprite(fm){ return (S.gear==='net'?netters:fishers)[fm.row][fm.pose][fm.pal]; }
+function fsprite(fm){ return (netGear()?netters:fishers)[fm.row][fm.pose][fm.pal]; }
 function drawFisher(fm){
   const sp=fsprite(fm);
   ctx.drawImage(sp.cv, Math.round(fm.lx-sp.ax), Math.round(fm.ly-sp.ay));
@@ -1612,7 +1682,7 @@ function drawBoil(){
   ctx.globalAlpha=1;
 }
 function drawLines(){
-  if(S.gear==='net') return;                       // 網のときは竿を出さない
+  if(netGear()) return;                       // 網のときは竿を出さない
   const B=S.boat, ox=VW/2-B.x, oy=VH/2-B.y;
   const by0=VH/2+bobPx, HULL_BOT=4;
   for(const fm of S.crew){
@@ -1677,8 +1747,42 @@ function drawStick(){
   ctx.fillStyle='#ffe6a8'; ctx.fillRect(tx-1,ty-1,2,2);
   ctx.globalAlpha=1;
 }
+function drawTrawl(){
+  if(S.gear!=='trawl') return;
+  const B=S.boat, n=trawlPos(), ox=VW/2-B.x, oy=VH/2-B.y;
+  const ca=Math.cos(B.hd), sa=Math.sin(B.hd);
+  const hw=trawlW()*0.5, hd2=TR.depth*0.5;
+  const P=(lx,ly)=>[Math.round(n.x+lx*ca-ly*sa+ox), Math.round(n.y+lx*sa+ly*ca+oy+bobPx)];
+  const a=P(hd2,-hw), b=P(hd2,hw), c=P(-hd2,hw*0.55), d=P(-hd2,-hw*0.55);
+  const boosting=navBoost();
+  ctx.lineWidth=1;
+  ctx.globalAlpha=0.30*(1-0.4*REDUCE);          // 曳き綱
+  ctx.strokeStyle='#c9b184';
+  const st=[Math.round(B.x+ox), Math.round(B.y+oy+bobPx)];
+  ctx.beginPath();
+  ctx.moveTo(st[0]+.5,st[1]+.5); ctx.lineTo(a[0]+.5,a[1]+.5);
+  ctx.moveTo(st[0]+.5,st[1]+.5); ctx.lineTo(b[0]+.5,b[1]+.5);
+  ctx.stroke();
+  ctx.globalAlpha=(boosting?0.75:0.5)*(1-0.4*REDUCE);   // 口と袋
+  ctx.strokeStyle=boosting?'#ffe9b0':'#6fd0c0';
+  ctx.beginPath();
+  ctx.moveTo(a[0]+.5,a[1]+.5); ctx.lineTo(b[0]+.5,b[1]+.5);
+  ctx.lineTo(c[0]+.5,c[1]+.5); ctx.lineTo(d[0]+.5,d[1]+.5); ctx.closePath();
+  ctx.stroke();
+  ctx.globalAlpha=0.26*(1-0.4*REDUCE);          // 目
+  ctx.fillStyle=boosting?'#ffe9b0':'#6fd0c0';
+  for(let i=1;i<10;i++){
+    const u=i/10;
+    for(let j=1;j<7;j++){
+      const v=j/7;
+      const q=P(hd2-TR.depth*u, (-hw+2*hw*v)*(1-0.45*u));
+      if(((i+j)&1)===0) ctx.fillRect(q[0],q[1],1,1);
+    }
+  }
+  ctx.globalAlpha=1;
+}
 function drawNet(){
-  if(S.gear!=='net') return;
+  if(S.gear!=='seine') return;
   const B=S.boat, N=S.net, ox=VW/2-B.x, oy=VH/2-B.y;
   const cx=VW/2, cy=VH/2+bobPx, R=netR(), Ry=R*NET.flat;
   if(!navBoost()){
@@ -1767,7 +1871,7 @@ function draw(){
     sx=Math.round(Math.sin(S.rt*82)*m); sy=Math.round(Math.cos(S.rt*67)*m);
   }
   if(sx||sy) ctx.setTransform(1,0,0,1,sx,sy);
-  drawSea(); drawSchools(); drawBoil(); drawChests(); drawRings(); drawWake(); drawNet();
+  drawSea(); drawSchools(); drawBoil(); drawChests(); drawRings(); drawWake(); drawNet(); drawTrawl();
   drawBoat(); drawSpray(); drawLines(); drawPops(); drawGulls();
   if(sx||sy) ctx.setTransform(1,0,0,1,0,0);
   drawBurst(); drawStick();
@@ -1970,7 +2074,7 @@ function showCards(){
     }
     if(ef){ const e=document.createElement('div'); e.className='ef'; e.textContent=ef; d.append(e); }
     const fl=document.createElement('div'); fl.className='fl';
-    fl.innerHTML=t('up.'+u.id+'.fl'+(S.gear==='net'&&u.id==='rate'?'.net':'')); d.append(fl);  // <br> を入れるため
+    fl.innerHTML=t('up.'+u.id+'.fl'+(netGear()&&u.id==='rate'?'.net':'')); d.append(fl);  // <br> を入れるため
     d.addEventListener('click',()=>choose(idx));
     d.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){e.preventDefault();choose(idx);} });
     cardsEl.appendChild(d);
@@ -2174,8 +2278,9 @@ muteBtn.addEventListener('click',e=>{ e.stopPropagation(); audioInit(); openMenu
 const elHaul=document.getElementById('haul');
 const mGearV=document.getElementById('mGearV');
 function paintGear(){ mGearV.textContent=t('gear.'+S.gear); }
+const GEARS=['pole','seine','trawl'];
 document.getElementById('mGear').addEventListener('click',()=>{   // 切り替えたら仕切り直し
-  S.gear = S.gear==='net' ? 'pole' : 'net';
+  S.gear = GEARS[(GEARS.indexOf(S.gear)+1)%GEARS.length];
   saveGear(S.gear); paintGear(); openMenu(false); startGame();
 });
 document.getElementById('mSound').addEventListener('click',()=>{ muted=!muted; paintSound(); });
